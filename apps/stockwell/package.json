@@ -1,0 +1,38 @@
+{
+  "name": "stockwell",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port 3050",
+    "build": "next build",
+    "start": "next start --port 3050",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "embed:storefront": "node scripts/embed-storefront.mjs",
+    "build:storefront": "EXPO_PUBLIC_API_BASE= pnpm --filter storefront build:web",
+    "build:full": "pnpm build:storefront && pnpm embed:storefront && next build",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:setup": "pnpm db:generate && pnpm db:migrate && pnpm db:seed"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "@stockwell/shared": "workspace:*",
+    "drizzle-orm": "^0.36.4",
+    "jose": "^5.9.6",
+    "jsbarcode": "^3.11.6",
+    "next": "15.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv": "^16.4.7",
+    "drizzle-kit": "^0.28.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  }
+}

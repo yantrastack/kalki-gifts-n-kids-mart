@@ -1,0 +1,24 @@
+{
+  "name": "stockwell-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter stockwell dev",
+    "dev:storefront": "pnpm --filter storefront start",
+    "build": "pnpm --filter stockwell build",
+    "build:full": "pnpm --filter stockwell build:full",
+    "typecheck": "pnpm -r typecheck",
+    "db:setup": "pnpm --filter stockwell db:setup",
+    "db:generate": "pnpm --filter stockwell db:generate",
+    "db:migrate": "pnpm --filter stockwell db:migrate",
+    "db:seed": "pnpm --filter stockwell db:seed",
+    "lint": "biome lint .",
+    "format": "biome format .",
+    "format:write": "biome format --write .",
+    "check": "biome check .",
+    "check:write": "biome check --write ."
+  },
+  "packageManager": "pnpm@11.3.0",
+  "devDependencies": {
+    "@biomejs/biome": "2.5.5"
+  }
+}

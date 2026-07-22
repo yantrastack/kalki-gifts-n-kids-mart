@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1782250568391,
+      "tag": "0000_sparkling_rockslide",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1782251002280,
+      "tag": "0001_mean_warpath",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782295789665,
+      "tag": "0002_living_rictor",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1782659361083,
+      "tag": "0003_slow_crystal",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784540445668,
+      "tag": "0004_married_jasper_sitwell",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1784542261783,
+      "tag": "0005_cheerful_jack_flag",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784705160771,
+      "tag": "0006_lowly_wolfpack",
+      "breakpoints": true
+    }
+  ]
+}

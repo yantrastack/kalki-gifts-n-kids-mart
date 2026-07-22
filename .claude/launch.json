@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "stockwell",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "stockwell", "dev"],
+      "port": 3050
+    },
+    {
+      "name": "storefront-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "storefront", "exec", "expo", "start", "--web", "--port", "8083"],
+      "port": 8083
+    }
+  ]
+}
