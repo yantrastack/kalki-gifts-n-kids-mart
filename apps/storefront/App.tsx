@@ -235,12 +235,17 @@ function Shop() {
             <Text style={styles.markText}>{brand?.brandInitial ?? 'S'}</Text>
           </View>
         )}
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+        <View style={{ flex: 1, marginLeft: 10, marginRight: 6 }}>
+          <Text
+            style={[styles.title, { color: theme.text }, screen !== 'home' && { fontSize: 18 }]}
+            numberOfLines={2}
+          >
             {title}
           </Text>
           {screen === 'home' && brand?.tagline ? (
-            <Text style={{ color: theme.faint, fontSize: 12 }}>{brand.tagline}</Text>
+            <Text style={{ color: theme.faint, fontSize: 11 }} numberOfLines={1}>
+              {brand.tagline}
+            </Text>
           ) : null}
         </View>
         <LangToggle theme={theme} />
@@ -382,7 +387,7 @@ const styles = StyleSheet.create({
   hbtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   mark: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   markText: { color: '#fff', fontSize: 17, fontWeight: '800' },
-  title: { fontSize: 18, fontWeight: '700' },
+  title: { fontSize: 16, fontWeight: '700', lineHeight: 19 },
   langWrap: { flexDirection: 'row', alignItems: 'center', padding: 3, gap: 2 },
   langBtn: { paddingHorizontal: 10, paddingVertical: 6, minWidth: 34, alignItems: 'center' },
   badge: {

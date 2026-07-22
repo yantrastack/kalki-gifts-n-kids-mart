@@ -263,9 +263,11 @@ a {
 }
 .brand-name {
   font-weight: 600;
-  font-size: var(--t-md);
+  font-size: var(--t-sm);
   letter-spacing: -0.01em;
-  white-space: nowrap;
+  line-height: 1.15;
+  /* allow long shop names (e.g. "Kalki Gifts n Kids Mart") to wrap, not overflow */
+  white-space: normal;
 }
 [data-sidebar="collapsed"] .brand-name,
 [data-sidebar="collapsed"] .nav-label,

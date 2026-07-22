@@ -1180,17 +1180,17 @@ const RETURNS = [
 
 /* ------------------------------------------------------------------- settings */
 const SETTINGS = [
-  { key: 'appName', value: 'Kanuka Gifts' },
+  { key: 'appName', value: 'Kalki Gifts n Kids Mart' },
   { key: 'brandInitial', value: 'K' },
-  { key: 'accentColor', value: '#d1495b' },
+  { key: 'accentColor', value: '#e23747' },
   { key: 'tagline', value: 'Gifts for every occasion' },
   { key: 'plan', value: 'Growth' },
   { key: 'seats', value: '6' },
-  { key: 'companyName', value: 'Kanuka Gifts' },
+  { key: 'companyName', value: 'Kalki Gifts n Kids Mart' },
   { key: 'currency', value: '₹' },
   { key: 'taxRate', value: '0.18' },
   { key: 'address', value: '24 MG Road, Bengaluru 560001' },
-  { key: 'email', value: 'hello@kanuka.store' },
+  { key: 'email', value: 'hello@kalkigifts.store' },
   { key: 'phone', value: '+919845012345' },
   { key: 'whatsapp', value: '+919845012345' },
   { key: 'lowStockThreshold', value: '10' },
