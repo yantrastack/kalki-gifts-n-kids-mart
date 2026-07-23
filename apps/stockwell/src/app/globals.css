@@ -221,14 +221,23 @@ a {
 
 .main {
   display: grid;
-  grid-template-rows: var(--topbar-h) 1fr;
+  /* minmax(0, 1fr) + overflow hidden: cap the content row at the viewport so
+     .page/.pos scroll internally instead of blowing .main past 100vh (body has
+     overflow: hidden, which would clip everything below the fold). */
+  grid-template-rows: var(--topbar-h) minmax(0, 1fr);
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background: var(--bg);
 }
 
 .page {
   overflow: auto;
   padding: var(--s-6) var(--s-7);
+  /* Grid item of .main: without this, a wide table's min-content blows the
+     whole page out past the viewport instead of scrolling inside .table-scroll. */
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ===== Sidebar ===== */
@@ -238,6 +247,17 @@ a {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Nav sections scroll on short viewports; brand stays at top and the org
+   block (margin-top: auto) stays pinned at the bottom. */
+.sb-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .brand {
@@ -1222,7 +1242,10 @@ table.dt tbody tr:last-child td {
 }
 @media (max-width: 720px) {
   .app {
-    grid-template-columns: 0 1fr;
+    /* Single column: the fixed-position sidebar is out of flow, so .main is
+       the first in-flow grid item — with "0 1fr" it landed in the 0-width
+       track and rendered blank once .main clipped its overflow. */
+    grid-template-columns: 1fr;
   }
   .sidebar {
     position: fixed;
@@ -1248,6 +1271,38 @@ table.dt tbody tr:last-child td {
   }
   .kpi-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  /* Tables: keep readable column widths and scroll horizontally instead of
+     squishing/wrapping cells on small screens. .table-scroll already scrolls. */
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table-scroll table {
+    min-width: 680px;
+  }
+  /* Keep short codes (SKU/ids) on one line so rows stay compact; the table scrolls. */
+  .table-scroll .mono {
+    white-space: nowrap;
+  }
+
+  /* Filter toolbars: stack each control full-width so nothing is clipped. */
+  .table-toolbar {
+    gap: var(--s-2);
+  }
+  .table-toolbar > .input-group,
+  .table-toolbar > .select,
+  .table-toolbar > input,
+  .table-toolbar > select {
+    width: 100% !important;
+    max-width: none;
+  }
+
+  /* Page-header actions wrap below the title. */
+  .ph-actions {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }
 
@@ -1639,7 +1694,9 @@ a.nav-item {
 .pos {
   height: calc(100vh - var(--topbar-h));
   display: grid;
-  grid-template-columns: 1fr 420px;
+  /* minmax(0, …): don't let the catalog's min-content width widen the track
+     past the viewport (it made the whole register overflow horizontally). */
+  grid-template-columns: minmax(0, 1fr) 420px;
   overflow: hidden;
 }
 .pos-catalog {
@@ -1795,10 +1852,19 @@ a.nav-item {
 }
 @media (max-width: 900px) {
   .pos {
-    grid-template-columns: 1fr;
-    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    /* Stacked catalog+cart is taller than the viewport; .pos itself becomes
+       the scroll container (height:auto here left the page unscrollable —
+       body/.main clip overflow, so the cart was unreachable). */
+    height: 100%;
+    overflow-y: auto;
+  }
+  .pos-catalog {
+    overflow: visible;
+    border-right: 0;
   }
   .pos-cart {
+    overflow: visible;
     border-top: 1px solid var(--border);
   }
 }

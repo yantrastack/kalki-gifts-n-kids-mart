@@ -60,7 +60,7 @@ export default function EngagementPage() {
             {products.length} products · {fmt.int(totals.buys)} buy taps
           </div>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll">
           <table className="table">
             <thead>
               <tr>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import VideoPlayer from './VideoPlayer';
 import { type Theme, thumbColor, initials } from '../theme';
 import { mediaUrl } from '../api';
 import type { ShopMedia } from '@stockwell/shared';
@@ -43,7 +43,7 @@ export default function MediaCarousel({
         onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
         renderItem={({ item }) =>
           item.type === 'video' ? (
-            <VideoSlide uri={mediaUrl(item.url)} size={width} theme={theme} />
+            <VideoPlayer uri={mediaUrl(item.url)} width={width} height={width} theme={theme} />
           ) : (
             <Image
               source={{ uri: mediaUrl(item.url) }}
@@ -76,22 +76,6 @@ export default function MediaCarousel({
         </>
       )}
     </View>
-  );
-}
-
-function VideoSlide({ uri, size, theme }: { uri: string; size: number; theme: Theme }) {
-  const player = useVideoPlayer(uri, (p) => {
-    p.loop = true;
-    p.muted = true;
-    p.play();
-  });
-  return (
-    <VideoView
-      player={player}
-      style={{ width: size, height: size, backgroundColor: theme.text }}
-      contentFit="cover"
-      nativeControls
-    />
   );
 }
 
