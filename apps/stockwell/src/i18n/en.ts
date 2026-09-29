@@ -67,6 +67,53 @@ export const en = {
     loading: 'Loading…',
     genericError: 'Something went wrong',
   },
+
+  productImport: {
+    button: 'Import',
+    title: 'Import products',
+    intro:
+      'Upload a CSV file with one product per row. Only name and sku are required. Rows with an existing SKU update that product; blank cells leave fields unchanged.',
+    downloadTemplate: 'Download CSV template',
+    chooseFile: 'Choose CSV file',
+    changeFile: 'Choose another file',
+    reading: 'Reading file…',
+    summary: '{total} rows · {valid} ready · {invalid} with errors',
+    colLine: 'Row',
+    colName: 'Name',
+    colSku: 'SKU',
+    colStock: 'Stock',
+    colPrice: 'Price',
+    colStatus: 'Status',
+    ok: 'Ready',
+    created: 'Created',
+    updated: 'Updated',
+    failed: 'Failed',
+    cancel: 'Cancel',
+    close: 'Close',
+    importRows: 'Import {count} rows',
+    importing: 'Importing…',
+    done: 'Import finished: {created} created, {updated} updated, {failed} failed',
+    resultTitle: '{created} created · {updated} updated · {failed} failed',
+    failedRows: 'Rows that were not imported',
+    errors: {
+      notCsv: 'Please choose a .csv file.',
+      empty: 'The file has no product rows.',
+      missingColumns: 'Missing required column(s): {columns}',
+      tooMany: 'Too many rows ({count}). Import at most {max} rows at a time.',
+      unreadable: 'Could not read the file.',
+      failed: 'Import failed: {message}',
+    },
+    issues: {
+      required: '{field} is required',
+      number: '{field} must be a number (0 or more)',
+      integer: '{field} must be a whole number',
+      tooLong: '{field} is too long',
+      duplicateSku: 'SKU appears more than once in the file',
+      unknownWarehouse: 'Unknown warehouse',
+      scientificNotation:
+        'Barcode was saved by Excel in scientific notation (e.g. 8.9E+12) and lost digits. Format the barcode column as Text, re-enter it and save again.',
+    },
+  },
 };
 
 export type Dict = typeof en;

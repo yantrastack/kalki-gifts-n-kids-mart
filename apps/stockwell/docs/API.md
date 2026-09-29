@@ -15,6 +15,7 @@ Responses are JSON; errors are `{ error }` with a 4xx status.
 ## Products
 | GET | `/api/products?q=&category=&status=&warehouse=` | list + filter |
 | POST | `/api/products` | create (status auto-derived) |
+| POST | `/api/products/import` | bulk CSV import. Body `{ rows: ImportRow[] }` (parsed by `rowsFromCsv` in `src/lib/productImport.ts`, ≤1000 rows). Upserts by SKU (blank cells leave fields unchanged), re-derives status, writes `stock_moves` for opening/changed stock, one transaction. Returns `{ created, updated, failed, results[] }` with structured issue codes per failed row |
 | GET | `/api/products/[id]` | single |
 | PUT | `/api/products/[id]` | partial update (re-derives status on stock; accepts `gift_*` fields) |
 | DELETE | `/api/products/[id]` | **admin** |
