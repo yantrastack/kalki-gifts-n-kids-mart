@@ -508,6 +508,10 @@ a {
   border-radius: var(--r-full);
   border: 2px solid var(--bg-elev);
 }
+/* The dot's ring must track the button's hover background, or it shows a halo. */
+.icon-btn:hover .dot {
+  border-color: var(--bg-hover);
+}
 
 /* ===== Buttons ===== */
 .btn {
@@ -1213,6 +1217,12 @@ table.dt tbody tr:last-child td {
   white-space: nowrap;
   pointer-events: none;
   z-index: 1000;
+}
+/* The topbar sits at the top of .main (overflow: hidden), so an above-positioned
+   tooltip is clipped; open header tooltips downward, like the header dropdown. */
+.topbar [data-tip]:hover::after {
+  bottom: auto;
+  top: calc(100% + 6px);
 }
 
 /* Skeleton */
