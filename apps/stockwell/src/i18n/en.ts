@@ -114,6 +114,36 @@ export const en = {
         'Barcode was saved by Excel in scientific notation (e.g. 8.9E+12) and lost digits. Format the barcode column as Text, re-enter it and save again.',
     },
   },
+
+  dashboard: {
+    lastNDays: 'Last {n} days',
+    revenueSub: 'Daily sales · last {n} days',
+    vsPrevious: 'vs. previous {n} days',
+    export: 'Export',
+    csv: {
+      section: 'Section',
+      metric: 'Metric',
+      value: 'Value',
+      range: 'Range',
+      kpis: 'KPIs',
+      revenue: 'Revenue',
+      revenueTotal: 'Revenue total',
+      revenuePrev: 'Revenue, previous period',
+      categories: 'Category mix',
+      orders: 'Sales orders',
+      date: 'Date',
+      order: 'Order',
+      customer: 'Customer',
+      items: 'Items',
+      total: 'Total',
+      status: 'Status',
+      productCount: 'Total products',
+      lowStock: 'Low stock items',
+      outOfStock: 'Out of stock',
+      inventoryValue: 'Inventory value (cost)',
+      retailValue: 'Retail value',
+    },
+  },
 };
 
 export type Dict = typeof en;

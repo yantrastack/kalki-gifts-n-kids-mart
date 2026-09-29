@@ -1,8 +1,23 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
-import { desc } from 'drizzle-orm';
+import { desc, gte } from 'drizzle-orm';
+import {
+  dailySeries,
+  daysAgo,
+  parseOrderDate,
+  parseRange,
+  rangeDays,
+  rangeStartSql,
+} from '@/lib/dashboardRange';
 
-export async function GET() {
+// `?range=7d|30d|90d` (default 30d) bounds the date-based data: the daily
+// revenue series, recent sales orders and recent stock moves. Stock/catalog
+// KPIs and the category mix are current snapshots and ignore the range.
+export async function GET(req: NextRequest) {
+  const range = parseRange(req.nextUrl.searchParams.get('range'));
+  const days = rangeDays(range);
+  const today = new Date();
+
   const products = await db.select().from(schema.products).all();
   const suppliers = await db.select().from(schema.suppliers).all();
   const warehouses = await db.select().from(schema.warehouses).all();
@@ -10,6 +25,7 @@ export async function GET() {
   const moves = await db
     .select()
     .from(schema.stockMoves)
+    .where(gte(schema.stockMoves.createdAt, rangeStartSql(days, today)))
     .orderBy(desc(schema.stockMoves.id))
     .limit(8);
 
@@ -37,7 +53,26 @@ export async function GET() {
     .slice(0, 5)
     .map((p) => ({ name: p.name, sold: p.stock, revenue: Math.round(p.price * p.stock) }));
 
+  // Revenue excludes cancelled orders.
+  const datedOrders = salesOrders.map((o) => ({ o, date: parseOrderDate(o.date, today) }));
+  const revenue = dailySeries(
+    datedOrders
+      .filter(({ o }) => o.status !== 'cancelled')
+      .map(({ o, date }) => ({ date, amount: o.total })),
+    days,
+    today,
+  );
+  const recentOrders = datedOrders
+    .filter(({ date }) => date && daysAgo(date, today) >= 0 && daysAgo(date, today) < days)
+    .sort(
+      (a, b) =>
+        (b.date as Date).getTime() - (a.date as Date).getTime() || (a.o.id < b.o.id ? 1 : -1),
+    )
+    .map(({ o }) => o);
+
   return NextResponse.json({
+    range,
+    days,
     kpis: {
       inventoryValue: Math.round(inventoryValue),
       retailValue: Math.round(retailValue),
@@ -51,6 +86,12 @@ export async function GET() {
     },
     categories,
     topProducts,
+    revenue: {
+      series: revenue.series,
+      total: Math.round(revenue.total),
+      prevTotal: Math.round(revenue.prevTotal),
+    },
+    recentOrders,
     recentMoves: moves,
   });
 }
