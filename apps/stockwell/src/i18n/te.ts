@@ -62,4 +62,25 @@ export const te: Dict = {
     loading: 'లోడ్ అవుతోంది…',
     genericError: 'ఏదో తప్పు జరిగింది',
   },
+
+  inventory: {
+    export: 'ఎగుమతి',
+    col: {
+      product: 'ఉత్పత్తి',
+      sku: 'SKU',
+      warehouse: 'గిడ్డంగి',
+      onHand: 'చేతిలో ఉన్నవి',
+      reserved: 'రిజర్వ్ చేసినవి',
+      incoming: 'రాబోయేవి',
+      available: 'అందుబాటులో',
+      damaged: 'దెబ్బతిన్నవి',
+      status: 'స్థితి',
+    },
+    status: {
+      active: 'స్టాక్‌లో ఉంది',
+      low: 'తక్కువ స్టాక్',
+      out: 'స్టాక్ లేదు',
+      archived: 'ఆర్కైవ్ చేయబడింది',
+    },
+  },
 };

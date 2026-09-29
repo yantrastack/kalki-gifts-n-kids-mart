@@ -2,10 +2,13 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
+import { useI18n } from '@/i18n';
 import { jget } from '@/lib/api';
+import { downloadCsv } from '@/lib/csv';
 
 export default function InventoryPage() {
   const { fmt, ProductThumb, Kpi2, statusBadge, Avatar } = UI;
+  const { t } = useI18n();
   const [products, setProducts] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [moves, setMoves] = useState<any[]>([]);
@@ -26,6 +29,45 @@ export default function InventoryPage() {
   const totalValue = products.reduce((s, p) => s + p.stock * p.cost, 0);
   const filtered = products.filter((p) => warehouse === 'all' || p.warehouse === warehouse);
   const fmoves = moves.filter((m) => moveType === 'all' || m.type === moveType);
+
+  // t() echoes the key when a string is missing — fall back to the raw status code then.
+  const statusLabel = (s: string) => {
+    const key = `inventory.status.${s}`;
+    const label = t(key);
+    return label === key ? s : label;
+  };
+
+  // Exports the Stock levels view, honouring the warehouse filter.
+  const exportCsv = () => {
+    const cols = [
+      'product',
+      'sku',
+      'warehouse',
+      'onHand',
+      'reserved',
+      'incoming',
+      'available',
+      'damaged',
+      'status',
+    ];
+    const rows = filtered.map((p) => [
+      p.name,
+      p.sku,
+      p.warehouse,
+      p.stock,
+      p.reserved,
+      p.incoming,
+      Math.max(0, p.stock - p.reserved),
+      p.damaged,
+      statusLabel(p.status),
+    ]);
+    const date = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
+    downloadCsv(
+      `inventory-${warehouse}-${date}.csv`,
+      cols.map((c) => t(`inventory.col.${c}`)),
+      rows,
+    );
+  };
 
   const MoveItem = ({ m }: any) => {
     const iconMap: any = {
@@ -75,8 +117,8 @@ export default function InventoryPage() {
           <div className="ph-sub">Real-time stock counts and movement across all warehouses.</div>
         </div>
         <div className="ph-actions">
-          <button className="btn btn-secondary">
-            <Icon name="download" size={14} /> Export
+          <button className="btn btn-secondary" onClick={exportCsv} disabled={!filtered.length}>
+            <Icon name="download" size={14} /> {t('inventory.export')}
           </button>
         </div>
       </div>
