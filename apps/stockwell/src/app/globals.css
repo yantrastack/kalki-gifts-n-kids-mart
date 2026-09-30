@@ -19,6 +19,8 @@
   --border: #e8e3dc;
   --border-strong: #d6cfc4;
   --border-subtle: #efeae3;
+  --border-row: #dcd5cb;
+  --border-head: #bdb3a5;
 
   --accent: #9a3a3a;
   --accent-hover: #832e2e;
@@ -112,6 +114,8 @@
   --border: #2b2624;
   --border-strong: #3a3431;
   --border-subtle: #232020;
+  --border-row: #34302d;
+  --border-head: #564e49;
 
   --accent: #c25b5b;
   --accent-hover: #d77070;
@@ -698,7 +702,10 @@ table.dt thead th {
   color: var(--fg-secondary);
   padding: 10px var(--pad-cell-x);
   background: var(--bg-muted);
-  border-bottom: 1px solid var(--border);
+  /* Header→data divider: heavier + darker than row dividers (--border-row) so the
+     header reads as a distinct band. 2px because 1px at near-row contrast was
+     indistinguishable from an ordinary row line. */
+  border-bottom: 2px solid var(--border-head);
   position: sticky;
   top: 0;
   z-index: 1;
@@ -713,7 +720,7 @@ table.dt thead th.sortable:hover {
 }
 table.dt tbody td {
   padding: var(--pad-cell-y) var(--pad-cell-x);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-row);
   vertical-align: middle;
   height: var(--row-h);
 }
@@ -734,9 +741,18 @@ table.dt tbody tr.selected:hover {
 table.dt tbody tr:last-child td {
   border-bottom: 0;
 }
-.col-num {
+/* th.col-num must beat `table.dt thead th { text-align: left }` so numeric headers
+   sit over their right-aligned values. */
+.col-num,
+table.dt thead th.col-num {
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+/* Opt-in: centre every column so each value sits directly under its heading.
+   Declared after th.col-num so it wins the equal-specificity tie. */
+table.dt.dt-center thead th,
+table.dt.dt-center tbody td {
+  text-align: center;
 }
 .col-check {
   width: 36px;

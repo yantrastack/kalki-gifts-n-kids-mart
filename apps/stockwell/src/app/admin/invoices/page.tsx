@@ -117,7 +117,7 @@ export default function InvoicesPage() {
           </select>
         </div>
         <div className="table-scroll">
-          <table className="dt">
+          <table className="dt dt-center">
             <thead>
               <tr>
                 <th>Invoice</th>
