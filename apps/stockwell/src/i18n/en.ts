@@ -147,6 +147,7 @@ export const en = {
 
   inventory: {
     export: 'Export',
+    warehouseFilter: 'Filter by warehouse',
     col: {
       product: 'Product',
       sku: 'SKU',

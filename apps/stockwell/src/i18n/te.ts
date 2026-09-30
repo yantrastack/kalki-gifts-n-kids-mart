@@ -142,6 +142,7 @@ export const te: Dict = {
 
   inventory: {
     export: 'ఎగుమతి',
+    warehouseFilter: 'గిడ్డంగి వారీగా ఫిల్టర్ చేయండి',
     col: {
       product: 'ఉత్పత్తి',
       sku: 'SKU',

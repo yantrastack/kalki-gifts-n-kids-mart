@@ -777,6 +777,74 @@ table.dt tbody tr:last-child td {
   color: var(--fg-tertiary);
 }
 
+/* Themed Select (components/ui.tsx): `.select` trigger + Dropdown-style list. */
+.select-wrap {
+  position: relative;
+}
+.select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+.select-trigger .select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-trigger > svg {
+  flex-shrink: 0;
+  color: var(--fg-tertiary);
+  transition: transform var(--transition);
+}
+.select-trigger[aria-expanded="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.select-trigger[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
+.select-list {
+  position: fixed;
+  z-index: 110; /* above modals (100), below tooltips/toasts */
+  overflow-y: auto;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  animation: scale-in 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: top;
+}
+.select-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: var(--t-base);
+  color: var(--fg);
+  cursor: pointer;
+}
+.select-option + .select-option {
+  margin-top: 4px;
+}
+.select-option > span {
+  flex: 1;
+}
+.select-option.active {
+  background: var(--bg-hover);
+}
+.select-option[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-soft-fg);
+  font-weight: 500;
+}
+
 .input-group {
   display: flex;
   align-items: center;
@@ -1303,6 +1371,7 @@ table.dt tbody tr:last-child td {
   }
   .table-toolbar > .input-group,
   .table-toolbar > .select,
+  .table-toolbar > .select-wrap,
   .table-toolbar > input,
   .table-toolbar > select {
     width: 100% !important;

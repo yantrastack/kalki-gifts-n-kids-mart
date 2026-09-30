@@ -151,19 +151,16 @@ export default function InventoryPage() {
       {tab === 'stock' && (
         <div className="table-wrap">
           <div className="table-toolbar">
-            <select
-              className="select"
+            <UI.Select
               style={{ width: 220 }}
+              aria-label={t('inventory.warehouseFilter')}
               value={warehouse}
-              onChange={(e) => setWarehouse(e.target.value)}
-            >
-              <option value="all">All warehouses</option>
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.id} — {w.name}
-                </option>
-              ))}
-            </select>
+              onChange={setWarehouse}
+              options={[
+                { value: 'all', label: 'All warehouses' },
+                ...warehouses.map((w) => ({ value: w.id, label: `${w.id} — ${w.name}` })),
+              ]}
+            />
           </div>
           <div className="table-scroll">
             <table className="dt">
