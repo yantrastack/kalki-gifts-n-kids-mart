@@ -144,6 +144,27 @@ export const en = {
       retailValue: 'Retail value',
     },
   },
+
+  inventory: {
+    export: 'Export',
+    col: {
+      product: 'Product',
+      sku: 'SKU',
+      warehouse: 'Warehouse',
+      onHand: 'On hand',
+      reserved: 'Reserved',
+      incoming: 'Incoming',
+      available: 'Available',
+      damaged: 'Damaged',
+      status: 'Status',
+    },
+    status: {
+      active: 'In stock',
+      low: 'Low stock',
+      out: 'Out of stock',
+      archived: 'Archived',
+    },
+  },
 };
 
 export type Dict = typeof en;
