@@ -166,6 +166,43 @@ export const en = {
       archived: 'Archived',
     },
   },
+
+  suppliers: {
+    add: 'Add supplier',
+    edit: 'Edit',
+    editTitle: 'Edit supplier',
+    save: 'Save changes',
+    remove: 'Remove',
+    actions: 'Supplier actions',
+    name: 'Supplier name',
+    contact: 'Contact person',
+    email: 'Email',
+    phone: 'Phone',
+    cancel: 'Cancel',
+    added: 'Added {name}',
+    updated: 'Updated {name}',
+    removed: 'Removed {name}',
+    removeTitle: 'Remove supplier?',
+    removeBody:
+      '{name} will be removed from your supplier list. Existing products and purchase orders keep the supplier name. This can’t be undone.',
+    notFound: 'This supplier no longer exists. The list has been refreshed.',
+    loadFailed: 'Could not load suppliers. Please try again.',
+    saveFailed: 'Could not save supplier. Please try again.',
+    removeFailed: 'Could not remove supplier. Please try again.',
+    errors: {
+      required: '{field} is required',
+      tooShort: 'Must be at least {min} characters',
+      tooLong: 'Must be {max} characters or fewer',
+      invalidEmail: 'Enter a valid email address, e.g. name@example.com',
+      invalidPhone: 'Enter a valid phone number (10–15 digits, e.g. +91 98765 43210)',
+      // Keyed by field: the `duplicate` code applies to name, email and phone.
+      duplicate: {
+        name: 'A supplier with this name already exists',
+        email: 'A supplier with this email already exists',
+        phone: 'A supplier with this phone number already exists',
+      },
+    },
+  },
 };
 
 export type Dict = typeof en;

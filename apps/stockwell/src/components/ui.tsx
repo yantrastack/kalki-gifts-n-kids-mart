@@ -363,7 +363,7 @@ export function Avatar({ name = '', color, size = 24 }: any) {
   );
 }
 
-export function Modal({ open, onClose, children, large }: any) {
+export function Modal({ open, onClose, children, large, small }: any) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -375,7 +375,10 @@ export function Modal({ open, onClose, children, large }: any) {
   if (!open) return null;
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className={`modal${large ? ' modal-lg' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`modal${large ? ' modal-lg' : ''}${small ? ' modal-sm' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {children}
       </div>
     </div>
