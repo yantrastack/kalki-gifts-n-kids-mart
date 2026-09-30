@@ -11,7 +11,11 @@ export async function jsend<T = any>(url: string, method: string, body?: any): P
   });
   if (!r.ok) {
     const e = await r.json().catch(() => ({}));
-    throw new Error(e.error || `${method} ${url} failed: ${r.status}`);
+    // `status` and `body` let callers react to specific failures (e.g. show field errors inline).
+    throw Object.assign(new Error(e.error || `${method} ${url} failed: ${r.status}`), {
+      status: r.status,
+      body: e,
+    });
   }
   return r.json();
 }

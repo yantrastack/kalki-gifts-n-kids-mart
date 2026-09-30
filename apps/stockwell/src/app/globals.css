@@ -1116,6 +1116,9 @@ table.dt.dt-center tbody td {
 .modal-lg {
   width: min(880px, calc(100vw - 32px));
 }
+.modal-sm {
+  width: min(440px, calc(100vw - 32px));
+}
 .modal-header {
   padding: var(--s-4) var(--s-5);
   border-bottom: 1px solid var(--border-subtle);
@@ -1681,6 +1684,21 @@ a.nav-item {
 .field > span {
   color: var(--fg-secondary);
   font-weight: 500;
+}
+.field > .field-error {
+  color: var(--danger);
+  font-size: var(--t-xs);
+  font-weight: 400;
+}
+.field-required {
+  color: var(--danger);
+}
+.input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+.input[aria-invalid="true"]:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-soft);
 }
 .input {
   width: 100%;
