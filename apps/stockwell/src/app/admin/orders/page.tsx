@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
 import { jget, jsend } from '@/lib/api';
+import { downloadCsv } from '@/lib/csv';
 
 const modalHead = (title: string, onClose: () => void) => (
   <div
@@ -229,6 +230,26 @@ export default function OrdersPage() {
   const unpaid = sales.filter((o) => o.payment !== 'paid');
   const salesMtd = sales.reduce((s, o) => s + o.total, 0);
 
+  // Exports the active tab. Totals stay raw numbers (not en-IN strings) so
+  // spreadsheets can sum them.
+  const exportRows = tab === 'sales' ? sales : pos;
+  const exportCsv = () => {
+    const date = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
+    if (tab === 'sales') {
+      downloadCsv(
+        `sales-orders-${date}.csv`,
+        ['Order', 'Customer', 'Items', 'Total', 'Status', 'Payment', 'Date'],
+        sales.map((o) => [o.id, o.customer, o.items, o.total, o.status, o.payment, o.date]),
+      );
+    } else {
+      downloadCsv(
+        `purchase-orders-${date}.csv`,
+        ['PO', 'Supplier', 'Items', 'Total', 'Status', 'ETA', 'Created'],
+        pos.map((o) => [o.id, o.supplier, o.items, o.total, o.status, o.eta, o.created]),
+      );
+    }
+  };
+
   return (
     <div className="page">
       <div className="ph">
@@ -237,7 +258,11 @@ export default function OrdersPage() {
           <div className="ph-sub">Track purchase and sales orders across your channels.</div>
         </div>
         <div className="ph-actions">
-          <button className="btn btn-secondary">
+          <button
+            className="btn btn-secondary"
+            onClick={exportCsv}
+            disabled={exportRows.length === 0}
+          >
             <Icon name="download" size={14} /> Export
           </button>
           <Link href="/admin/purchases/new" className="btn btn-primary">
