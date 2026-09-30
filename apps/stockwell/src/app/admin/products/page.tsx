@@ -4,6 +4,8 @@ import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
 import { jget, jsend } from '@/lib/api';
 import AddProductModal from '@/components/AddProductModal';
+import ImportProductsModal from '@/components/ImportProductsModal';
+import { useI18n } from '@/i18n';
 import { useUser } from '@/components/UserContext';
 import { GIFT_OCCASIONS, GIFT_RECIPIENTS, GIFT_TYPES } from '@stockwell/shared';
 
@@ -20,6 +22,7 @@ export default function ProductsPage() {
     useToast,
   } = UI;
   const toast = useToast();
+  const { t } = useI18n();
   const { isAdmin } = useUser();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +36,7 @@ export default function ProductsPage() {
   const [openProduct, setOpenProduct] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const pageSize = 10;
 
   const load = () => {
@@ -155,8 +159,8 @@ export default function ProductsPage() {
           </div>
         </div>
         <div className="ph-actions">
-          <button className="btn btn-secondary">
-            <Icon name="upload" size={14} /> Import
+          <button className="btn btn-secondary" onClick={() => setImportOpen(true)}>
+            <Icon name="upload" size={14} /> {t('productImport.button')}
           </button>
           <button className="btn btn-primary" onClick={() => setAddOpen(true)}>
             <Icon name="plus" size={14} /> Add product
@@ -506,6 +510,11 @@ export default function ProductsPage() {
       </Slideover>
 
       <AddProductModal open={addOpen} onClose={() => setAddOpen(false)} onSubmit={handleAdd} />
+      <ImportProductsModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={load}
+      />
     </div>
   );
 }
