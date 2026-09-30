@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
 import { jget } from '@/lib/api';
+import { DASHBOARD_RANGES, type DashboardRange, isoDay, rangeDays } from '@/lib/dashboardRange';
+import { useI18n } from '@/i18n';
 
 const SALES_SERIES = [
   18420, 19840, 17320, 22140, 24820, 21640, 19920, 23420, 25240, 27120, 24820, 26420, 28840, 31200,
@@ -11,20 +13,23 @@ const SALES_SERIES = [
   44320, 46820,
 ];
 
+const csvCell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
 export default function DashboardPage() {
-  const { fmt, Kpi, LineChart, Donut, Avatar, statusBadge } = UI;
-  const [range, setRange] = useState('30d');
+  const { fmt, Kpi, LineChart, Donut, Avatar, statusBadge, Dropdown, MenuItem } = UI;
+  const { t } = useI18n();
+  const [range, setRange] = useState<DashboardRange>('30d');
   const [data, setData] = useState<any>(null);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [moves, setMoves] = useState<any[]>([]);
 
   useEffect(() => {
-    jget('/api/dashboard').then((d) => {
-      setData(d);
-      setMoves(d.recentMoves || []);
+    let live = true;
+    jget(`/api/dashboard?range=${range}`).then((d) => {
+      if (live) setData(d);
     });
-    jget('/api/sales-orders').then(setOrders);
-  }, []);
+    return () => {
+      live = false;
+    };
+  }, [range]);
 
   if (!data)
     return (
@@ -33,12 +38,45 @@ export default function DashboardPage() {
       </div>
     );
   const k = data.kpis;
-  const series =
-    range === '7d'
-      ? SALES_SERIES.slice(-7)
-      : range === '90d'
-        ? [...SALES_SERIES, ...SALES_SERIES, ...SALES_SERIES].slice(0, 90)
-        : SALES_SERIES;
+  const days = rangeDays(range);
+  const orders: any[] = data.recentOrders || [];
+  const moves: any[] = data.recentMoves || [];
+  const series: number[] = data.revenue.series.map((p: any) => p.total);
+  const { total: revenueTotal, prevTotal } = data.revenue;
+  const revenueDelta = prevTotal > 0 ? (revenueTotal - prevTotal) / prevTotal : null;
+
+  const exportCsv = () => {
+    const c = (key: string) => t(`dashboard.csv.${key}`);
+    const rows: unknown[][] = [
+      [c('section'), c('metric'), c('value')],
+      [c('range'), t('dashboard.lastNDays', { n: days }), ''],
+      [c('kpis'), c('productCount'), k.productCount],
+      [c('kpis'), c('lowStock'), k.lowStock],
+      [c('kpis'), c('outOfStock'), k.outOfStock],
+      [c('kpis'), c('inventoryValue'), fmt.money(k.inventoryValue)],
+      [c('kpis'), c('retailValue'), fmt.money(k.retailValue)],
+      [c('kpis'), c('revenueTotal'), fmt.money(revenueTotal)],
+      [c('kpis'), c('revenuePrev'), fmt.money(prevTotal)],
+      [],
+      [c('revenue'), c('date'), c('total')],
+      ...data.revenue.series.map((p: any) => [c('revenue'), p.date, fmt.money(p.total)]),
+      [],
+      [c('categories'), c('metric'), c('value')],
+      ...data.categories.map((cat: any) => [c('categories'), cat.name, fmt.pct(cat.value)]),
+      [],
+      [c('order'), c('customer'), c('items'), c('total'), c('status'), c('date')],
+      ...orders.map((o) => [o.id, o.customer, o.items, fmt.money(o.total), o.status, o.date]),
+    ];
+    const csv = rows.map((r) => r.map(csvCell).join(',')).join('\n');
+    // BOM so spreadsheet apps read ₹ and Telugu text as UTF-8.
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dashboard-${range}-${isoDay(new Date())}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
 
   return (
     <div className="page">
@@ -50,11 +88,25 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="ph-actions">
-          <button className="btn btn-secondary">
-            <Icon name="calendar" size={14} /> Last 30 days <Icon name="chevDown" size={12} />
-          </button>
-          <button className="btn btn-secondary">
-            <Icon name="download" size={14} /> Export
+          <Dropdown
+            trigger={
+              <button type="button" className="btn btn-secondary">
+                <Icon name="calendar" size={14} /> {t('dashboard.lastNDays', { n: days })}{' '}
+                <Icon name="chevDown" size={12} />
+              </button>
+            }
+          >
+            {DASHBOARD_RANGES.map((r) => (
+              <MenuItem
+                key={r}
+                icon={r === range ? 'check' : undefined}
+                label={t('dashboard.lastNDays', { n: rangeDays(r) })}
+                onClick={() => setRange(r)}
+              />
+            ))}
+          </Dropdown>
+          <button type="button" className="btn btn-secondary" onClick={exportCsv}>
+            <Icon name="download" size={14} /> {t('dashboard.export')}
           </button>
           <Link href="/admin/products" className="btn btn-primary">
             <Icon name="plus" size={14} /> New product
@@ -99,7 +151,7 @@ export default function DashboardPage() {
           <div className="card-header">
             <div>
               <div className="card-title">Revenue</div>
-              <div className="card-subtitle">Daily sales · last 30 days</div>
+              <div className="card-subtitle">{t('dashboard.revenueSub', { n: days })}</div>
             </div>
             <div
               style={{
@@ -109,7 +161,7 @@ export default function DashboardPage() {
                 padding: 2,
               }}
             >
-              {['7d', '30d', '90d'].map((r) => (
+              {DASHBOARD_RANGES.map((r) => (
                 <button
                   key={r}
                   onClick={() => setRange(r)}
@@ -139,12 +191,23 @@ export default function DashboardPage() {
                     fontVariantNumeric: 'tabular-nums',
                   }}
                 >
-                  {fmt.money(series.reduce((a, b) => a + b, 0))}
+                  {fmt.money(revenueTotal)}
                 </div>
-                <div className="kpi-delta up" style={{ marginTop: 2 }}>
-                  <Icon name="arrowUp" size={12} /> +12.4%{' '}
+                <div
+                  className={`kpi-delta ${revenueDelta == null ? '' : revenueDelta >= 0 ? 'up' : 'down'}`}
+                  style={{ marginTop: 2 }}
+                >
+                  {revenueDelta == null ? (
+                    '—'
+                  ) : (
+                    <>
+                      <Icon name={revenueDelta >= 0 ? 'arrowUp' : 'arrowDown'} size={12} />{' '}
+                      {revenueDelta >= 0 ? '+' : ''}
+                      {(revenueDelta * 100).toFixed(1)}%
+                    </>
+                  )}{' '}
                   <span className="dim" style={{ fontFamily: 'var(--font-sans)' }}>
-                    vs. previous 30 days
+                    {t('dashboard.vsPrevious', { n: days })}
                   </span>
                 </div>
               </div>

@@ -61,29 +61,31 @@ function Sidebar({ pathname, mobileOpen, onClose, brand, t }: any) {
         <div className="brand-mark">{brand.brandInitial}</div>
         <div className="brand-name">{brand.appName}</div>
       </div>
-      {NAV_SECTIONS.map((section) => (
-        <div className="nav-section" key={section.section}>
-          <div className="nav-section-label">{t(section.section)}</div>
-          {section.items.map((item) => {
-            const active = pathname === item.href;
-            const label = t(item.label);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`nav-item${active ? ' active' : ''}`}
-                data-tip={label}
-                onClick={onClose}
-              >
-                <span className="nav-icon">
-                  <Icon name={item.icon} size={16} />
-                </span>
-                <span className="nav-label">{label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      ))}
+      <nav className="sb-nav">
+        {NAV_SECTIONS.map((section) => (
+          <div className="nav-section" key={section.section}>
+            <div className="nav-section-label">{t(section.section)}</div>
+            {section.items.map((item) => {
+              const active = pathname === item.href;
+              const label = t(item.label);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`nav-item${active ? ' active' : ''}`}
+                  data-tip={label}
+                  onClick={onClose}
+                >
+                  <span className="nav-icon">
+                    <Icon name={item.icon} size={16} />
+                  </span>
+                  <span className="nav-label">{label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
       <div className="sb-org-block">
         <div className="sb-avatar">{(brand.appName || '?').slice(0, 2).toUpperCase()}</div>
         <div className="sb-org">

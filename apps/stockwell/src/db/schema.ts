@@ -39,6 +39,8 @@ export const products = sqliteTable('products', {
   tag: text('tag'),
   hsnCode: text('hsn_code'),
   gstRate: real('gst_rate').default(0),
+  mrp: real('mrp'),
+  expiry: text('expiry'),
   // Gift-finder attributes (CSV lists; empty = not tagged for gifting)
   giftOccasions: text('gift_occasions'), // e.g. "wedding,birthday"
   giftRecipients: text('gift_recipients'), // e.g. "men,kids"
@@ -95,6 +97,34 @@ export const purchaseOrders = sqliteTable('purchase_orders', {
   status: text('status').default('draft'),
   eta: text('eta'),
   created: text('created'),
+  // Supplier-bill details captured on the purchase entry page.
+  invoiceNo: text('invoice_no'),
+  invoiceDate: text('invoice_date'),
+  enteredDate: text('entered_date'),
+});
+
+// Line items for a purchase order. Products created inline from a PO are
+// flagged isNew so the receiving screen can highlight them.
+export const purchaseOrderItems = sqliteTable('purchase_order_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  poId: text('po_id')
+    .notNull()
+    .references(() => purchaseOrders.id, { onDelete: 'cascade' }),
+  productId: text('product_id').references(() => products.id),
+  product: text('product'),
+  sku: text('sku'),
+  qty: integer('qty').notNull().default(0),
+  received: integer('received').notNull().default(0),
+  cost: real('cost').notNull().default(0),
+  isNew: integer('is_new').notNull().default(0),
+  // Bill-entry details: free/scheme units, batch expiry and the prices the
+  // product was updated to (selling price + MRP) when the bill was entered.
+  free: integer('free').notNull().default(0),
+  scheme: text('scheme'),
+  expiry: text('expiry'),
+  price: real('price'),
+  mrp: real('mrp'),
+  batchNo: text('batch_no'),
 });
 
 export const salesOrders = sqliteTable('sales_orders', {
@@ -125,6 +155,7 @@ export type Supplier = typeof suppliers.$inferSelect;
 export type Warehouse = typeof warehouses.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
+export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;
 export type SalesOrder = typeof salesOrders.$inferSelect;
 export type StockMove = typeof stockMoves.$inferSelect;
 

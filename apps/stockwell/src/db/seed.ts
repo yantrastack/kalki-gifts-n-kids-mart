@@ -1201,6 +1201,7 @@ async function seed() {
   await db.delete(schema.productEvents);
   await db.delete(schema.productMedia);
   await db.delete(schema.stockMoves);
+  await db.delete(schema.purchaseOrderItems);
   await db.delete(schema.products);
   await db.delete(schema.salesOrders);
   await db.delete(schema.purchaseOrders);

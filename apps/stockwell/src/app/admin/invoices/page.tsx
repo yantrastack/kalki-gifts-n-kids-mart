@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
 import { jget, jsend } from '@/lib/api';
+import { downloadCsv } from '@/lib/csv';
 
 export default function InvoicesPage() {
   const { fmt, statusBadge, Kpi2, Modal, Dropdown, MenuItem, useToast } = UI;
@@ -39,6 +40,23 @@ export default function InvoicesPage() {
     [invoices, filter, query],
   );
 
+  // Exports the rows currently shown, honouring the status filter and search.
+  const exportCsv = () => {
+    const header = ['Invoice', 'Customer', 'Channel', 'Total', 'Paid', 'Balance', 'Status', 'Due'];
+    const rows = filtered.map((i) => [
+      i.id,
+      i.customer,
+      i.channel,
+      fmt.money(i.total),
+      fmt.money(i.paid || 0),
+      fmt.money(Math.max(0, i.total - (i.paid || 0))),
+      i.status ? i.status[0].toUpperCase() + i.status.slice(1) : '',
+      i.due,
+    ]);
+    const date = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
+    downloadCsv(`invoices-${filter}-${date}.csv`, header, rows);
+  };
+
   const openPay = (inv: any) => {
     setPayFor(inv);
     setPayAmount(String((inv.total - (inv.paid || 0)).toFixed(2)));
@@ -65,7 +83,7 @@ export default function InvoicesPage() {
           </div>
         </div>
         <div className="ph-actions">
-          <button className="btn btn-secondary">
+          <button className="btn btn-secondary" onClick={exportCsv} disabled={!filtered.length}>
             <Icon name="download" size={14} /> Export
           </button>
         </div>

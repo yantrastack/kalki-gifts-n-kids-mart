@@ -1,6 +1,7 @@
 'use client';
 import type React from 'react';
-import { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
+import { useState, useEffect, useRef, useCallback, useId, createContext, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 
 // Currency defaults to the Indian rupee with lakh/crore-aware compacting.
@@ -477,6 +478,214 @@ export function MenuItem({ icon, label, onClick, danger, sub }: any) {
 export const MenuSep = () => (
   <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 0' }} />
 );
+
+type SelectOption = { value: string; label: string };
+
+// Themed stand-in for a native <select>. Browsers draw a native select's option
+// list themselves, so it can't follow the app theme. The trigger keeps the
+// `.select` look; the list reuses the Dropdown surface and is portalled to <body>
+// so `overflow: hidden` containers (e.g. .table-wrap) can't clip it. Keyboard
+// follows the WAI-ARIA select-only combobox pattern: arrows, Home/End,
+// Enter/Space, Escape, Tab and type-ahead.
+export function Select({
+  value,
+  onChange,
+  options,
+  style,
+  className = '',
+  'aria-label': ariaLabel,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: SelectOption[];
+  style?: React.CSSProperties;
+  className?: string;
+  'aria-label'?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const [pos, setPos] = useState<React.CSSProperties>({});
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const typed = useRef({ text: '', at: 0 });
+  const id = useId();
+  const selectedIdx = Math.max(
+    0,
+    options.findIndex((o) => o.value === value),
+  );
+
+  const show = () => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const below = window.innerHeight - r.bottom;
+    const up = below < 200 && r.top > below;
+    setPos(
+      up
+        ? {
+            left: r.left,
+            width: r.width,
+            bottom: window.innerHeight - r.top + 4,
+            maxHeight: Math.min(280, r.top - 12),
+          }
+        : { left: r.left, width: r.width, top: r.bottom + 4, maxHeight: Math.min(280, below - 12) },
+    );
+    setActive(selectedIdx);
+    setOpen(true);
+  };
+  const close = (refocus = true) => {
+    setOpen(false);
+    if (refocus) btnRef.current?.focus();
+  };
+  const pick = (i: number) => {
+    const o = options[i];
+    if (o && o.value !== value) onChange(o.value);
+    close();
+  };
+
+  // Close on outside press, page scroll or resize (the list is fixed-positioned).
+  useEffect(() => {
+    if (!open) return;
+    const inside = (t: EventTarget | null) =>
+      t instanceof Node && (btnRef.current?.contains(t) || listRef.current?.contains(t));
+    const onDown = (e: MouseEvent) => {
+      if (!inside(e.target)) setOpen(false);
+    };
+    const onScroll = (e: Event) => {
+      if (!inside(e.target)) setOpen(false);
+    };
+    const onResize = () => setOpen(false);
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) listRef.current?.children[active]?.scrollIntoView({ block: 'nearest' });
+  }, [open, active]);
+
+  // Type-ahead: jump to the next option whose label starts with the typed text.
+  const typeAhead = (key: string) => {
+    const now = Date.now();
+    const t = typed.current;
+    t.text = now - t.at > 600 ? key : t.text + key;
+    t.at = now;
+    const from = open ? active : selectedIdx;
+    const start = t.text.length === 1 ? from + 1 : from;
+    for (let n = 0; n < options.length; n++) {
+      const i = (start + n) % options.length;
+      if (options[i].label.toLowerCase().startsWith(t.text)) {
+        if (open) setActive(i);
+        else if (options[i].value !== value) onChange(options[i].value);
+        return;
+      }
+    }
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const last = options.length - 1;
+    if (!open) {
+      if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) {
+        e.preventDefault();
+        show();
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        typeAhead(e.key.toLowerCase());
+      }
+      return;
+    }
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setActive((i) => Math.min(last, i + 1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setActive((i) => Math.max(0, i - 1));
+        break;
+      case 'Home':
+        e.preventDefault();
+        setActive(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        setActive(last);
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        pick(active);
+        break;
+      case 'Escape':
+        e.preventDefault();
+        close();
+        break;
+      case 'Tab':
+        close(false);
+        break;
+      default:
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          typeAhead(e.key.toLowerCase());
+        }
+    }
+  };
+
+  return (
+    <div className={`select-wrap ${className}`} style={style}>
+      <button
+        ref={btnRef}
+        type="button"
+        role="combobox"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? `${id}-list` : undefined}
+        aria-activedescendant={open ? `${id}-${active}` : undefined}
+        className="select select-trigger"
+        onClick={() => (open ? close() : show())}
+        onKeyDown={onKeyDown}
+        // Space activates a button on keyup; the keydown handler already handled it.
+        onKeyUp={(e) => e.key === ' ' && e.preventDefault()}
+      >
+        <span className="select-value">{options[selectedIdx]?.label}</span>
+        <Icon name="chevDown" size={14} />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={listRef}
+            id={`${id}-list`}
+            role="listbox"
+            aria-label={ariaLabel}
+            className="select-list"
+            style={pos}
+            // Keep focus on the trigger so keyboard handling keeps working.
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            {options.map((o, i) => (
+              <div
+                key={o.value}
+                id={`${id}-${i}`}
+                role="option"
+                tabIndex={-1}
+                aria-selected={i === selectedIdx}
+                className={`select-option${i === active ? ' active' : ''}`}
+                onMouseMove={() => i !== active && setActive(i)}
+                onClick={() => pick(i)}
+              >
+                <span>{o.label}</span>
+                {i === selectedIdx && <Icon name="check" size={14} />}
+              </div>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
 
 export function EmptyState({ icon, title, body, action }: any) {
   return (
