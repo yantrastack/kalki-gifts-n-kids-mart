@@ -145,6 +145,10 @@ export const en = {
     },
   },
 
+  barcode: {
+    format: 'Barcode format',
+  },
+
   inventory: {
     export: 'Export',
     warehouseFilter: 'Filter by warehouse',
