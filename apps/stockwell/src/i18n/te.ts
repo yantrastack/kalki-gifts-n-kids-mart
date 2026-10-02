@@ -147,6 +147,14 @@ export const te: Dict = {
   inventory: {
     export: 'ఎగుమతి',
     warehouseFilter: 'గిడ్డంగి వారీగా ఫిల్టర్ చేయండి',
+    search: 'పేరు లేదా SKU తో వెతకండి',
+    clearSearch: 'శోధనను తొలగించండి',
+    noMatch: 'సరిపోలే ఉత్పత్తులు లేవు',
+    noMatchBody: 'శోధనను తొలగించండి లేదా గిడ్డంగిని మార్చండి.',
+    showing: '{total} లో {from}–{to} చూపిస్తోంది',
+    prev: 'మునుపటి',
+    next: 'తదుపరి',
+    pagination: 'స్టాక్ స్థాయిల పేజీలు',
     col: {
       product: 'ఉత్పత్తి',
       sku: 'SKU',
