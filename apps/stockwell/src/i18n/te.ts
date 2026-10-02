@@ -140,6 +140,10 @@ export const te: Dict = {
     },
   },
 
+  barcode: {
+    format: 'బార్‌కోడ్ ఫార్మాట్',
+  },
+
   inventory: {
     export: 'ఎగుమతి',
     warehouseFilter: 'గిడ్డంగి వారీగా ఫిల్టర్ చేయండి',

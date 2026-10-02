@@ -3,10 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import JsBarcode from 'jsbarcode';
 import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
+import { useI18n } from '@/i18n';
 import { jget } from '@/lib/api';
 
 export default function BarcodePage() {
   const { fmt } = UI;
+  const { t } = useI18n();
   const [products, setProducts] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<any>(null);
@@ -63,7 +65,7 @@ export default function BarcodePage() {
   };
 
   return (
-    <div className="page">
+    <div className="page barcode-page">
       <div className="ph">
         <div>
           <div className="ph-title">Barcode</div>
@@ -71,11 +73,8 @@ export default function BarcodePage() {
         </div>
       </div>
 
-      <div
-        style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 'var(--s-4)' }}
-        className="reports-layout"
-      >
-        <div className="table-wrap" style={{ alignSelf: 'start' }}>
+      <div className="barcode-layout">
+        <div className="table-wrap barcode-list">
           <div className="table-toolbar">
             <div className="input-group" style={{ width: '100%' }}>
               <Icon name="search" size={14} style={{ color: 'var(--fg-tertiary)' }} />
@@ -86,7 +85,7 @@ export default function BarcodePage() {
               />
             </div>
           </div>
-          <div style={{ maxHeight: 460, overflow: 'auto' }}>
+          <div className="barcode-list-scroll">
             {filtered.map((p) => (
               <button
                 key={p.id}
@@ -113,19 +112,20 @@ export default function BarcodePage() {
           </div>
         </div>
 
-        <div className="card" style={{ alignSelf: 'start' }}>
+        <div className="card barcode-preview">
           <div className="card-header">
             <div className="card-title">Label preview</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select
-                className="select"
-                style={{ width: 130 }}
+              <UI.Select
+                style={{ width: 170 }}
+                aria-label={t('barcode.format')}
                 value={format}
-                onChange={(e) => setFormat(e.target.value)}
-              >
-                <option value="CODE128">CODE128 (SKU)</option>
-                <option value="EAN13">EAN-13</option>
-              </select>
+                onChange={setFormat}
+                options={[
+                  { value: 'CODE128', label: 'CODE128 (SKU)' },
+                  { value: 'EAN13', label: 'EAN-13' },
+                ]}
+              />
               <button
                 className="btn btn-primary btn-sm"
                 onClick={printLabel}
@@ -135,7 +135,7 @@ export default function BarcodePage() {
               </button>
             </div>
           </div>
-          <div className="card-body" style={{ display: 'grid', placeItems: 'center', padding: 32 }}>
+          <div className="card-body">
             {selected ? (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontWeight: 600, marginBottom: 2 }}>{selected.name}</div>

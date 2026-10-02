@@ -2044,3 +2044,48 @@ a.nav-item {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Barcode: fill the page height (like .pos) so the product list scrolls inside
+   its panel and the preview card stretches to match it, instead of both ending
+   at their content height above an empty viewport. */
+.barcode-page {
+  display: flex;
+  flex-direction: column;
+}
+.barcode-layout {
+  flex: 1;
+  min-height: 420px;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--s-4);
+}
+.barcode-list,
+.barcode-preview {
+  display: flex;
+  flex-direction: column;
+}
+.barcode-list-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.barcode-preview .card-body {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+@media (max-width: 820px) {
+  /* Stacked: size to content and let .page scroll; cap the list as before. */
+  .barcode-layout {
+    flex: none;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+  .barcode-list-scroll {
+    flex: none;
+    max-height: 460px;
+  }
+}
