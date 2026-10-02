@@ -624,6 +624,9 @@ export function Select({
         break;
       case 'Escape':
         e.preventDefault();
+        // Only close the list — don't let a host Modal/Slideover's window Escape
+        // listener close too (a native select swallows this Escape the same way).
+        e.stopPropagation();
         close();
         break;
       case 'Tab':
