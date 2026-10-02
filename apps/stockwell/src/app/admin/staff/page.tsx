@@ -83,14 +83,23 @@ export default function StaffPage() {
 
       <div className="table-wrap">
         <div className="table-scroll">
-          <table className="dt">
+          {/* Fixed layout: the <colgroup> alone sets column positions, so header and
+              rows always share them regardless of cell content. Member takes the rest. */}
+          <table className="dt" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col />
+              <col style={{ width: '28%' }} />
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: 54 }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Member</th>
                 <th>Email</th>
                 <th>Role</th>
                 <th>Status</th>
-                <th style={{ width: 36 }}></th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -105,7 +114,10 @@ export default function StaffPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="muted" style={{ fontSize: 'var(--t-sm)' }}>
+                  <td
+                    className="muted"
+                    style={{ fontSize: 'var(--t-sm)', overflowWrap: 'anywhere' }}
+                  >
                     {u.email}
                   </td>
                   <td>{statusBadge(u.role)}</td>
@@ -207,17 +219,18 @@ export default function StaffPage() {
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
           </label>
-          <label className="field">
+          <div className="field">
             <span>Role</span>
-            <select
-              className="select"
+            <UI.Select
+              aria-label="Role"
               value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-            >
-              <option value="staff">Staff</option>
-              <option value="admin">Admin</option>
-            </select>
-          </label>
+              onChange={(role) => setForm({ ...form, role })}
+              options={[
+                { value: 'staff', label: 'Staff' },
+                { value: 'admin', label: 'Admin' },
+              ]}
+            />
+          </div>
         </div>
         <div
           style={{
