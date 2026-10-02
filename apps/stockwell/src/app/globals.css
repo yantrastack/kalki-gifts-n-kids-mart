@@ -754,6 +754,33 @@ table.dt.dt-center thead th,
 table.dt.dt-center tbody td {
   text-align: center;
 }
+/* Opt-in for report tables. Column widths come from the page's <colgroup> (one
+   width per column type). `table-layout: fixed` makes those <col> widths the only
+   input to column sizing — with `auto` they are just hints and header/body content
+   re-sizes the columns. --report-min (set by the page from per-column minimums)
+   keeps columns from squeezing; narrower containers scroll horizontally. Pair with
+   data-density="compact" on the table to reuse the compact row/padding tokens. */
+table.dt.dt-report {
+  table-layout: fixed;
+  min-width: var(--report-min, 0);
+}
+table.dt.dt-report thead th,
+table.dt.dt-report tbody td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Value columns: heading and values share one centre line. One class on the <th>
+   and its <td>s, so both always resolve to the same alignment. */
+table.dt.dt-report thead th.col-center,
+table.dt.dt-report tbody td.col-center {
+  text-align: center;
+}
+/* Bounded report area: long reports scroll inside the card under the sticky
+   header instead of growing the page. Short reports are unaffected. */
+.table-scroll.dt-report-scroll {
+  max-height: max(320px, calc(100vh - 240px));
+}
 .col-check {
   width: 36px;
   text-align: center;
@@ -1378,6 +1405,9 @@ table.dt.dt-center tbody td {
   }
   .table-scroll table {
     min-width: 680px;
+  }
+  .table-scroll table.dt.dt-report {
+    min-width: max(680px, var(--report-min, 0px));
   }
   /* Keep short codes (SKU/ids) on one line so rows stay compact; the table scrolls. */
   .table-scroll .mono {
