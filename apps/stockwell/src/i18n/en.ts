@@ -152,6 +152,14 @@ export const en = {
   inventory: {
     export: 'Export',
     warehouseFilter: 'Filter by warehouse',
+    search: 'Search by name or SKU',
+    clearSearch: 'Clear search',
+    noMatch: 'No products match',
+    noMatchBody: 'Try clearing the search or changing the warehouse.',
+    showing: 'Showing {from}–{to} of {total}',
+    prev: 'Previous',
+    next: 'Next',
+    pagination: 'Stock levels pages',
     col: {
       product: 'Product',
       sku: 'SKU',

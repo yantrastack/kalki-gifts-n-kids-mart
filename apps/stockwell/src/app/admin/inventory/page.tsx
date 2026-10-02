@@ -15,6 +15,18 @@ export default function InventoryPage() {
   const [warehouse, setWarehouse] = useState('all');
   const [tab, setTab] = useState('stock');
   const [moveType, setMoveType] = useState('all');
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  // Any filter change goes back to page 1.
+  const changeWarehouse = (v: string) => {
+    setWarehouse(v);
+    setPage(1);
+  };
+  const changeQuery = (v: string) => {
+    setQuery(v);
+    setPage(1);
+  };
 
   useEffect(() => {
     jget('/api/products').then(setProducts);
@@ -27,7 +39,18 @@ export default function InventoryPage() {
   const totalIncoming = products.reduce((s, p) => s + p.incoming, 0);
   const totalDamaged = products.reduce((s, p) => s + p.damaged, 0);
   const totalValue = products.reduce((s, p) => s + p.stock * p.cost, 0);
-  const filtered = products.filter((p) => warehouse === 'all' || p.warehouse === warehouse);
+  const q = query.trim().toLowerCase();
+  const filtered = products.filter(
+    (p) =>
+      (warehouse === 'all' || p.warehouse === warehouse) &&
+      (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)),
+  );
+  // Client-side paging, as on Products; the KPI totals above still use the full list.
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
+  // Up to 5 page buttons, centred on the current page.
+  const firstPage = Math.max(1, Math.min(page - 2, totalPages - 4));
+  const pageNums = Array.from({ length: Math.min(5, totalPages) }, (_, i) => firstPage + i);
   const fmoves = moves.filter((m) => moveType === 'all' || m.type === moveType);
 
   // t() echoes the key when a string is missing — fall back to the raw status code then.
@@ -151,11 +174,31 @@ export default function InventoryPage() {
       {tab === 'stock' && (
         <div className="table-wrap">
           <div className="table-toolbar">
+            <div className="input-group" style={{ width: 280 }}>
+              <Icon name="search" size={14} style={{ color: 'var(--fg-tertiary)' }} />
+              <input
+                placeholder={t('inventory.search')}
+                aria-label={t('inventory.search')}
+                value={query}
+                onChange={(e) => changeQuery(e.target.value)}
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  style={{ width: 20, height: 20 }}
+                  aria-label={t('inventory.clearSearch')}
+                  onClick={() => changeQuery('')}
+                >
+                  <Icon name="x" size={12} />
+                </button>
+              )}
+            </div>
             <UI.Select
               style={{ width: 220 }}
               aria-label={t('inventory.warehouseFilter')}
               value={warehouse}
-              onChange={setWarehouse}
+              onChange={changeWarehouse}
               options={[
                 { value: 'all', label: 'All warehouses' },
                 ...warehouses.map((w) => ({ value: w.id, label: `${w.id} — ${w.name}` })),
@@ -178,7 +221,7 @@ export default function InventoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
+                {pageItems.map((p) => (
                   <tr key={p.id}>
                     <td>
                       <div className="row">
@@ -221,9 +264,67 @@ export default function InventoryPage() {
                     <td>{statusBadge(p.status)}</td>
                   </tr>
                 ))}
+                {products.length > 0 && pageItems.length === 0 && (
+                  <tr>
+                    <td colSpan={9}>
+                      <UI.EmptyState
+                        icon="search"
+                        title={t('inventory.noMatch')}
+                        body={t('inventory.noMatchBody')}
+                      />
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
+          <nav
+            aria-label={t('inventory.pagination')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 8,
+              padding: '12px 16px',
+              borderTop: '1px solid var(--border-subtle)',
+              fontSize: 'var(--t-sm)',
+            }}
+          >
+            <span className="muted">
+              {t('inventory.showing', {
+                from: fmt.int(Math.min((page - 1) * pageSize + 1, filtered.length)),
+                to: fmt.int(Math.min(page * pageSize, filtered.length)),
+                total: fmt.int(filtered.length),
+              })}
+            </span>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={page === 1}
+                onClick={() => setPage((n) => n - 1)}
+              >
+                <Icon name="chevLeft" size={12} /> {t('inventory.prev')}
+              </button>
+              {pageNums.map((n) => (
+                <button
+                  key={n}
+                  className={`btn btn-sm ${page === n ? 'btn-secondary' : 'btn-ghost'}`}
+                  aria-current={page === n ? 'page' : undefined}
+                  onClick={() => setPage(n)}
+                  style={{ minWidth: 30, justifyContent: 'center' }}
+                >
+                  {n}
+                </button>
+              ))}
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={page === totalPages}
+                onClick={() => setPage((n) => n + 1)}
+              >
+                {t('inventory.next')} <Icon name="chevRight" size={12} />
+              </button>
+            </div>
+          </nav>
         </div>
       )}
 
