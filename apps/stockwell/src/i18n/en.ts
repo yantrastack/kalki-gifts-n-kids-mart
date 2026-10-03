@@ -215,6 +215,36 @@ export const en = {
       },
     },
   },
+
+  customers: {
+    add: 'Add customer',
+    name: 'Customer name',
+    type: 'Type',
+    business: 'Business',
+    individual: 'Individual',
+    email: 'Email',
+    phone: 'Phone',
+    address: 'Address',
+    cancel: 'Cancel',
+    errors: {
+      required: '{field} is required',
+      tooLong: 'Must be {max} characters or fewer',
+      invalidType: 'Choose a valid customer type',
+      invalidEmail: 'Enter a valid email address, e.g. name@example.com',
+      invalidPhone: 'Enter a valid phone number (10–15 digits, e.g. +91 98765 43210)',
+      duplicate: {
+        email: 'A customer with this email already exists',
+        phone: 'A customer with this phone number already exists',
+      },
+    },
+    added: 'Added {name}',
+    saveFailed: 'Could not save customer. Please try again.',
+    noMatch: 'No customers match your search',
+    showing: 'Showing {from}–{to} of {total}',
+    prev: 'Previous',
+    next: 'Next',
+    pagination: 'Customer list pages',
+  },
 };
 
 export type Dict = typeof en;

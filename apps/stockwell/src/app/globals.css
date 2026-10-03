@@ -229,6 +229,10 @@ a {
      .page/.pos scroll internally instead of blowing .main past 100vh (body has
      overflow: hidden, which would clip everything below the fold). */
   grid-template-rows: var(--topbar-h) minmax(0, 1fr);
+  /* Without an explicit column the implicit track is `auto`, which grows to the
+     topbar's min-content — on phones that pushed .topbar/.page past the viewport
+     and the overflow above clipped their right edge. */
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   overflow: hidden;
