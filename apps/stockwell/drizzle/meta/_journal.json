@@ -78,6 +78,13 @@
       "when": 1793169440853,
       "tag": "0010_fat_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1793179596857,
+      "tag": "0011_eager_thing",
+      "breakpoints": true
     }
   ]
 }

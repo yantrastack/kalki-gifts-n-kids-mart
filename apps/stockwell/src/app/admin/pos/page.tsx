@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
 import { jget, jsend } from '@/lib/api';
+import { buildSaleLines } from '@/lib/invoice';
 
-const TAX_RATE = 0.08;
 const PAYMENTS = [
   { id: 'card', label: 'Card', icon: 'card' },
   { id: 'cash', label: 'Cash', icon: 'banknote' },
@@ -58,7 +58,19 @@ export default function POSPage() {
       const ex = c.find((i) => i.id === p.id);
       return ex
         ? c.map((i) => (i.id === p.id ? { ...i, qty: i.qty + 1 } : i))
-        : [...c, { id: p.id, name: p.name, sku: p.sku, price: p.price, stock: p.stock, qty: 1 }];
+        : [
+            ...c,
+            {
+              id: p.id,
+              name: p.name,
+              sku: p.sku,
+              hsnCode: p.hsnCode,
+              price: p.price,
+              gstRate: p.gstRate,
+              stock: p.stock,
+              qty: 1,
+            },
+          ];
     });
   };
   const updateQty = (id: string, delta: number) =>
@@ -69,11 +81,26 @@ export default function POSPage() {
     );
   const removeItem = (id: string) => setCart((c) => c.filter((i) => i.id !== id));
 
-  const subtotal = useMemo(() => cart.reduce((s, i) => s + i.price * i.qty, 0), [cart]);
-  const discountAmount = subtotal * (discount / 100);
-  const afterDiscount = subtotal - discountAmount;
-  const tax = afterDiscount * TAX_RATE;
-  const total = afterDiscount + tax;
+  const sale = useMemo(
+    () =>
+      buildSaleLines(
+        cart.map((i) => ({
+          productId: i.id,
+          name: i.name,
+          sku: i.sku,
+          hsnCode: i.hsnCode,
+          price: i.price,
+          gstRate: i.gstRate,
+          qty: i.qty,
+        })),
+        discount,
+      ),
+    [cart, discount],
+  );
+  const subtotal = sale.subtotal;
+  const discountAmount = sale.discount;
+  const tax = sale.tax;
+  const total = sale.total;
   const totalQty = cart.reduce((s, i) => s + i.qty, 0);
 
   const checkout = async () => {
