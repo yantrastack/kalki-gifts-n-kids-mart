@@ -59,7 +59,10 @@ export async function GET() {
 
   // AR ageing (invoices)
   const ar = { paid: 0, partial: 0, unpaid: 0, overdue: 0 } as Record<string, number>;
-  for (const i of invoices) ar[i.status] = (ar[i.status] || 0) + (i.total - (i.paid || 0));
+  for (const i of invoices) {
+    if (i.status === 'void') continue;
+    ar[i.status] = (ar[i.status] || 0) + (i.total - (i.paid || 0));
+  }
   const receivables = Object.entries(ar).map(([status, outstanding]) => ({
     status,
     outstanding: Math.round(outstanding),

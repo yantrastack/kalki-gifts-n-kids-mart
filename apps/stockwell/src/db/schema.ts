@@ -158,6 +158,7 @@ export const stockMoves = sqliteTable('stock_moves', {
   who: text('who').default('System'),
   warehouse: text('warehouse'),
   meta: text('meta'),
+  ref: text('ref'),
   createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
 });
 
@@ -182,19 +183,46 @@ export const users = sqliteTable('users', {
 });
 export type User = typeof users.$inferSelect;
 
-export const invoices = sqliteTable('invoices', {
-  id: text('id').primaryKey(),
-  customer: text('customer'),
-  date: text('date'),
-  due: text('due'),
-  subtotal: real('subtotal').default(0),
-  tax: real('tax').default(0),
-  total: real('total').default(0),
-  paid: real('paid').default(0),
-  status: text('status').default('unpaid'),
-  method: text('method'),
-  channel: text('channel'),
-  items: integer('items').default(0),
+export const invoices = sqliteTable(
+  'invoices',
+  {
+    id: text('id').primaryKey(),
+    salesOrderId: text('sales_order_id').references(() => salesOrders.id),
+    customer: text('customer'),
+    date: text('date'),
+    due: text('due'),
+    subtotal: real('subtotal').default(0),
+    tax: real('tax').default(0),
+    total: real('total').default(0),
+    paid: real('paid').default(0),
+    status: text('status').default('unpaid'),
+    method: text('method'),
+    channel: text('channel'),
+    items: integer('items').default(0),
+  },
+  (table) => ({
+    salesOrderUnique: uniqueIndex('invoices_sales_order_unique').on(table.salesOrderId),
+  }),
+);
+
+// Snapshot of each line at the time of sale: later product edits never change
+// a historical invoice. productId is kept for traceability, not as the source
+// of the name, SKU, price or GST.
+export const invoiceItems = sqliteTable('invoice_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  invoiceId: text('invoice_id')
+    .notNull()
+    .references(() => invoices.id, { onDelete: 'cascade' }),
+  productId: text('product_id').references(() => products.id),
+  name: text('name').notNull(),
+  sku: text('sku').notNull(),
+  hsnCode: text('hsn_code'),
+  qty: integer('qty').notNull(),
+  unitPrice: real('unit_price').notNull(),
+  discount: real('discount').notNull().default(0),
+  gstRate: real('gst_rate').notNull().default(0),
+  gstAmount: real('gst_amount').notNull().default(0),
+  lineTotal: real('line_total').notNull(),
 });
 
 export const returns = sqliteTable('returns', {
@@ -214,5 +242,6 @@ export const settings = sqliteTable('settings', {
 });
 
 export type Invoice = typeof invoices.$inferSelect;
+export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type Return = typeof returns.$inferSelect;
 export type Setting = typeof settings.$inferSelect;

@@ -12,15 +12,39 @@ export default function InvoicesPage() {
   const [query, setQuery] = useState('');
   const [payFor, setPayFor] = useState<any>(null);
   const [payAmount, setPayAmount] = useState('');
+  const [detail, setDetail] = useState<any>(null);
 
   const load = () => jget('/api/invoices').then(setInvoices);
   useEffect(() => {
     load();
   }, []);
 
-  const outstanding = invoices.reduce((s, i) => s + (i.total - (i.paid || 0)), 0);
-  const overdue = invoices.filter((i) => i.status === 'overdue');
-  const paidTotal = invoices.reduce((s, i) => s + (i.paid || 0), 0);
+  const live = invoices.filter((i) => i.status !== 'void');
+  const outstanding = live.reduce((s, i) => s + (i.total - (i.paid || 0)), 0);
+  const overdue = live.filter((i) => i.status === 'overdue');
+  const paidTotal = live.reduce((s, i) => s + (i.paid || 0), 0);
+
+  const openDetail = async (inv: any) => setDetail(await jget(`/api/invoices/${inv.id}`));
+  const voidInvoice = async (inv: any) => {
+    if (!window.confirm(`Void invoice ${inv.id}? Its items go back into stock.`)) return;
+    try {
+      await jsend(`/api/invoices/${inv.id}`, 'PUT', { status: 'void' });
+      toast({ message: `Voided ${inv.id}`, icon: 'check' });
+      setDetail(null);
+      load();
+    } catch (e: any) {
+      toast({ message: e.message, icon: 'alert', type: 'danger' });
+    }
+  };
+  const printInvoice = () => {
+    document.body.classList.add('print-invoice');
+    const done = () => {
+      document.body.classList.remove('print-invoice');
+      window.removeEventListener('afterprint', done);
+    };
+    window.addEventListener('afterprint', done);
+    window.print();
+  };
 
   const filtered = useMemo(
     () =>
@@ -157,10 +181,17 @@ export default function InvoicesPage() {
                         </button>
                       }
                     >
-                      {i.total - i.paid > 0 && (
+                      <MenuItem
+                        icon="receipt2"
+                        label="View invoice"
+                        onClick={() => openDetail(i)}
+                      />
+                      {i.status !== 'void' && i.total - i.paid > 0 && (
                         <MenuItem icon="card" label="Record payment" onClick={() => openPay(i)} />
                       )}
-                      <MenuItem icon="printer" label="Print / PDF" onClick={() => window.print()} />
+                      {i.status !== 'void' && (
+                        <MenuItem icon="x" label="Void invoice" onClick={() => voidInvoice(i)} />
+                      )}
                     </Dropdown>
                   </td>
                 </tr>
@@ -237,6 +268,93 @@ export default function InvoicesPage() {
                 disabled={!Number(payAmount)}
               >
                 <Icon name="check" size={14} /> Record
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <style>{`@media print {
+        body.print-invoice * { visibility: hidden; }
+        body.print-invoice #invoice-print, body.print-invoice #invoice-print * { visibility: visible; }
+        body.print-invoice #invoice-print { position: absolute; left: 0; top: 0; width: 100%; }
+      }`}</style>
+      <Modal open={!!detail} onClose={() => setDetail(null)}>
+        {detail && (
+          <>
+            <div
+              id="invoice-print"
+              style={{ padding: 'var(--s-5)', display: 'grid', gap: 'var(--s-4)' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ margin: 0, fontSize: 'var(--t-lg)', fontWeight: 600 }}>
+                  Invoice {detail.id}
+                </h3>
+                <span style={{ marginLeft: 'auto' }}>{statusBadge(detail.status)}</span>
+              </div>
+              <div className="muted tiny">
+                {detail.customer} · {detail.date} · {detail.channel}
+              </div>
+              {detail.lines?.length ? (
+                <table className="dt">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th className="col-num">Qty</th>
+                      <th className="col-num">Price</th>
+                      <th className="col-num">Disc</th>
+                      <th className="col-num">GST</th>
+                      <th className="col-num">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.lines.map((l: any) => (
+                      <tr key={l.id}>
+                        <td>
+                          {l.name}
+                          <div className="muted tiny mono">
+                            {l.sku}
+                            {l.hsnCode ? ` · HSN ${l.hsnCode}` : ''}
+                          </div>
+                        </td>
+                        <td className="col-num mono">{l.qty}</td>
+                        <td className="col-num mono">{fmt.money(l.unitPrice)}</td>
+                        <td className="col-num mono">{fmt.money(l.discount)}</td>
+                        <td className="col-num mono">
+                          {l.gstRate}% · {fmt.money(l.gstAmount)}
+                        </td>
+                        <td className="col-num mono">{fmt.money(l.lineTotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="muted tiny">No line detail: this invoice predates line items.</div>
+              )}
+              <div style={{ display: 'grid', gap: 4, justifySelf: 'end', minWidth: 240 }}>
+                <div className="muted">Subtotal · {fmt.money(detail.subtotal)}</div>
+                <div className="muted">Tax · {fmt.money(detail.tax)}</div>
+                <div style={{ fontWeight: 600 }}>Total · {fmt.money(detail.total)}</div>
+                <div className="muted">Paid · {fmt.money(detail.paid)}</div>
+              </div>
+            </div>
+            <div
+              style={{
+                padding: 'var(--s-3) var(--s-5)',
+                borderTop: '1px solid var(--border)',
+                display: 'flex',
+                gap: 8,
+                justifyContent: 'flex-end',
+                background: 'var(--bg-muted)',
+              }}
+            >
+              {detail.status !== 'void' && (
+                <button className="btn btn-secondary" onClick={() => voidInvoice(detail)}>
+                  Void invoice
+                </button>
+              )}
+              <button className="btn btn-primary" onClick={printInvoice}>
+                <Icon name="printer" size={14} /> Print
               </button>
             </div>
           </>
