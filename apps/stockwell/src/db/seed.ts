@@ -1215,7 +1215,10 @@ async function seed() {
 
   await db.insert(schema.warehouses).values(WAREHOUSES);
   await db.insert(schema.suppliers).values(SUPPLIERS);
-  await db.insert(schema.products).values(PRODUCTS as any);
+  // Seed data represents an already-established catalog, so every seeded
+  // product starts out activated (see YAN-75 — lifecycle is separate from
+  // the stock-level `status` field above).
+  await db.insert(schema.products).values(PRODUCTS.map((p) => ({ ...p, lifecycle: 'active' })) as any);
   await db.insert(schema.productMedia).values(PRODUCT_MEDIA as any);
   // events can be many — chunk to stay under SQLite's variable limit
   for (let i = 0; i < PRODUCT_EVENTS.length; i += 200) {

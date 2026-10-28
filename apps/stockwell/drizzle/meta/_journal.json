@@ -71,6 +71,13 @@
       "when": 1784754476271,
       "tag": "0009_big_skaar",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793169440853,
+      "tag": "0010_fat_mad_thinker",
+      "breakpoints": true
     }
   ]
 }
