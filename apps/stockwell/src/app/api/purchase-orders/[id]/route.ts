@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { deriveStatus } from '@/lib/status';
+import { buildNewProductFromLine, priceRefreshPatch } from '@/lib/purchase';
+import { validatePricing } from '@/lib/catalog';
 import { eq, inArray } from 'drizzle-orm';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -33,6 +35,9 @@ type Line = {
   price?: number;
   mrp?: number;
   batchNo?: string;
+  hsnCode?: string;
+  gstRate?: number;
+  updateCatalogPrice?: boolean;
 };
 
 // Edit a purchase bill: the old lines' stock/incoming effect is reversed and
@@ -70,10 +75,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   // Load every product touched by the old or new lines.
   const ids = [
     ...new Set(
-      [
-        ...oldItems.map((i) => i.productId),
-        ...lines.map((l) => l.productId),
-      ].filter(Boolean) as string[],
+      [...oldItems.map((i) => i.productId), ...lines.map((l) => l.productId)].filter(
+        Boolean,
+      ) as string[],
     ),
   ];
   const products = ids.length
@@ -83,6 +87,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   for (const l of lines) {
     if (l.productId && !byId.has(l.productId))
       return NextResponse.json({ error: `Product ${l.productId} not found` }, { status: 404 });
+  }
+
+  // Validate opt-in price refreshes before starting the transaction.
+  if (received) {
+    for (const l of lines) {
+      if (!l.productId || !l.updateCatalogPrice) continue;
+      const p = byId.get(l.productId)!;
+      const sell = Number(l.price) || 0;
+      const mrp = Number(l.mrp) || 0;
+      const issues = validatePricing({
+        price: sell || p.price,
+        cost: Number(l.cost) || p.cost,
+        mrp: mrp || p.mrp,
+      });
+      if (issues.includes('priceAboveMrp'))
+        return NextResponse.json(
+          { error: `Selling price would exceed MRP for ${p.name}` },
+          { status: 400 },
+        );
+    }
   }
 
   const now = new Date().toISOString();
@@ -108,9 +132,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   await db.transaction(async (tx) => {
-    await tx
-      .delete(schema.purchaseOrderItems)
-      .where(eq(schema.purchaseOrderItems.poId, id));
+    await tx.delete(schema.purchaseOrderItems).where(eq(schema.purchaseOrderItems.poId, id));
 
     // 2) Apply edited lines (creating brand-new products where needed).
     const newItems: any[] = [];
@@ -132,40 +154,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         sku = p.sku;
         if (received) {
           bump(stockDelta, productId, totalUnits);
-          // Refresh the product's commercials from the corrected bill.
-          const patch: any = { updatedAt: now, cost: cost || p.cost };
-          if (sell) patch.price = sell;
-          if (mrp) patch.mrp = mrp;
-          if (l.expiry) patch.expiry = l.expiry;
+          // Only refreshes price/cost/MRP when the line explicitly opts in
+          // (validated above, before the transaction started).
+          const patch: any = { updatedAt: now, ...priceRefreshPatch(l, p) };
           await tx.update(schema.products).set(patch).where(eq(schema.products.id, productId));
         } else {
           bump(incomingDelta, productId, totalUnits);
         }
       } else {
-        productId = `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
-        productName = l.name!.trim();
-        sku = l.sku!.trim();
+        // Unlisted product — create it from the bill, always as a draft.
+        const newRow = buildNewProductFromLine(
+          l,
+          { warehouse, supplier: b.supplier, now, receiveNow: received },
+          deriveStatus,
+        );
+        productId = newRow.id;
+        productName = newRow.name;
+        sku = newRow.sku;
         isNew = 1;
-        const stock = received ? totalUnits : 0;
-        const row = {
-          id: productId,
-          name: productName,
-          sku,
-          category: l.category?.trim() || 'Uncategorized',
-          brand: l.brand?.trim() || null,
-          price: sell || Math.round(cost * 1.25 * 100) / 100,
-          cost,
-          mrp: mrp || null,
-          expiry: l.expiry || null,
-          stock,
-          incoming: received ? 0 : totalUnits,
-          warehouse,
-          supplier: b.supplier,
-          status: deriveStatus(stock),
-          createdAt: now,
-          updatedAt: now,
-        };
-        await tx.insert(schema.products).values(row as any);
+        await tx.insert(schema.products).values(newRow as any);
         if (received)
           await tx.insert(schema.stockMoves).values({
             type: 'purchase',
@@ -195,8 +202,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         batchNo: l.batchNo?.trim() || null,
       });
     }
-    for (const item of newItems)
-      await tx.insert(schema.purchaseOrderItems).values(item as any);
+    for (const item of newItems) await tx.insert(schema.purchaseOrderItems).values(item as any);
 
     // 3) Apply the net stock/incoming deltas for existing products.
     for (const [pid, p] of byId) {

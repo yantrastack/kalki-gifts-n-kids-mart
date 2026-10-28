@@ -8,6 +8,7 @@ import {
   type ShopMedia,
   type ShopProduct,
 } from '@stockwell/shared';
+import { isPublic } from '@/lib/catalog';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };
 
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
 
   const matches: GiftMatch[] = [];
   for (const p of rows) {
-    if (p.status === 'out' || p.stock <= 0) continue;
+    if (!isPublic(p as any) || p.stock <= 0) continue;
     if (minPrice !== null && p.price < minPrice) continue;
     if (maxPrice !== null && p.price > maxPrice) continue;
 

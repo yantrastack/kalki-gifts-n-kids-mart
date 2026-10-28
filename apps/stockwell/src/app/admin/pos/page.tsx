@@ -27,7 +27,7 @@ export default function POSPage() {
   const [receipt, setReceipt] = useState<any>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = () => jget('/api/products').then(setProducts);
+  const load = () => jget('/api/products?sellable=1').then(setProducts);
   useEffect(() => {
     load();
     jget('/api/customers').then(setCustomers);

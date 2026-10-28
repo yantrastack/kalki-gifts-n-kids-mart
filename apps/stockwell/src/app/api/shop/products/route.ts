@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { desc, asc } from 'drizzle-orm';
 import { csvToList, type ShopMedia, type ShopProduct } from '@stockwell/shared';
+import { isPublic } from '@/lib/catalog';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };
 
@@ -22,7 +23,7 @@ export async function GET() {
     mediaByProduct.set(m.productId, list);
   }
   const items: ShopProduct[] = rows
-    .filter((p) => p.status !== 'out' && p.stock > 0)
+    .filter((p) => isPublic(p as any) && p.stock > 0)
     .map((p) => ({
       id: p.id,
       name: p.name,
