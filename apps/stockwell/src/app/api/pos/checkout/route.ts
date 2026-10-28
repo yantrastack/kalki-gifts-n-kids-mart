@@ -1,9 +1,20 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { db, schema } from '@/db/client';
+import { getSession } from '@/lib/guard';
 import { deriveStatus } from '@/lib/status';
 import { isSellable } from '@/lib/catalog';
 import { buildSaleLines, type SaleInputLine } from '@/lib/invoice';
+import {
+  isIsoDate,
+  newPaymentId,
+  paiseToRupees,
+  planSalePayments,
+  rupeesToPaise,
+  todayIST,
+  type SalePaymentInput,
+  type SaleTerms,
+} from '@/lib/payments';
 import { inArray, eq, and } from 'drizzle-orm';
 
 class StockConflict extends Error {
@@ -15,15 +26,62 @@ class StockConflict extends Error {
 const newId = (prefix: string) =>
   `${prefix}-${Date.now().toString(36).toUpperCase()}${randomUUID().slice(0, 4).toUpperCase()}`;
 
-// One transaction: sales order header, linked invoice with snapshot lines,
-// stock decrement (compare-and-swap on the stock that was read), and a stock
-// move per line referencing the invoice. Any failure rolls everything back.
+const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
+
+// One transaction: sales order header, linked invoice with snapshot lines, the
+// payment rows, stock decrement (compare-and-swap on the stock that was read),
+// and a stock move per line referencing the invoice. Any failure rolls
+// everything back.
+//
+// Body: { items, customerId?, discountPct?, terms?: 'immediate' | 'credit',
+//         dueDate? (YYYY-MM-DD, credit only),
+//         payments?: [{ method, amount (rupees), reference? }], cashier? }
+// Credit is a sale term, not a payment method: it needs a registered customer
+// and a due date, and may carry zero or a partial down payment.
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== 'object') return bad('Invalid JSON body');
+
   const items: { productId: string; qty: number }[] = (body.items || []).filter(
     (i: any) => i.productId && i.qty > 0,
   );
-  if (!items.length) return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
+  if (!items.length) return bad('Cart is empty');
+
+  const terms: SaleTerms = body.terms ?? 'immediate';
+  if (terms !== 'immediate' && terms !== 'credit')
+    return bad('terms must be "immediate" or "credit"');
+
+  if (body.payments != null && !Array.isArray(body.payments)) return bad('payments must be a list');
+  const paymentInput: SalePaymentInput[] = [];
+  for (const p of body.payments ?? []) {
+    const paise = rupeesToPaise(p?.amount);
+    if (paise === null || paise <= 0)
+      return bad('Each payment amount must be greater than zero, with at most two decimals.');
+    paymentInput.push({ method: p?.method, amountPaise: paise, reference: p?.reference });
+  }
+
+  // A registered customer is required for credit; anyone else is a walk-in.
+  let customerId: string | null = null;
+  let customerName = 'Walk-in customer';
+  if (body.customerId) {
+    const c = await db
+      .select()
+      .from(schema.customers)
+      .where(eq(schema.customers.id, String(body.customerId)))
+      .get();
+    if (!c) return bad('Customer not found', 404);
+    if (c.name.trim().toLowerCase() !== 'walk-in customer') {
+      customerId = c.id;
+      customerName = c.name;
+    }
+  }
+  let dueDate: string | null = null;
+  if (terms === 'credit') {
+    if (!customerId) return bad('Credit sales need a registered customer, not a walk-in.');
+    if (!isIsoDate(body.dueDate) || body.dueDate < todayIST())
+      return bad('Credit sales need a due date that is today or later.');
+    dueDate = body.dueDate;
+  }
 
   const ids = items.map((i) => i.productId);
   const products = await db
@@ -61,39 +119,45 @@ export async function POST(req: NextRequest) {
   const discountPct = Math.max(0, Math.min(100, Number(body.discountPct) || 0));
   const sale = buildSaleLines(inputLines, discountPct);
   const totalQty = items.reduce((s, i) => s + i.qty, 0);
+  const totalPaise = Math.round(sale.total * 100);
 
-  const payment = body.payment || 'card';
-  const paymentStatus = ['ach', 'invoice'].includes(payment) ? 'unpaid' : 'paid';
+  const plan = planSalePayments(totalPaise, terms, paymentInput);
+  if ('error' in plan) return bad(plan.error);
+  const payStatus =
+    plan.paidPaise >= totalPaise ? 'paid' : plan.paidPaise > 0 ? 'partial' : 'unpaid';
+
+  const session = await getSession(req);
+  const recordedBy = session?.name ?? body.cashier ?? null;
   const orderId = newId('SO');
   const invoiceId = newId('INV');
-  const customer = body.customerName || 'Walk-in customer';
+  const issueDate = todayIST();
   const date = new Date().toLocaleDateString('en-IN', { month: 'short', day: '2-digit' });
-  const now = new Date().toISOString();
+  const nowIso = new Date().toISOString();
 
   try {
     await db.transaction(async (tx) => {
       await tx.insert(schema.salesOrders).values({
         id: orderId,
-        customer,
+        customer: customerName,
         items: totalQty,
         total: sale.total,
         status: 'fulfilled',
-        payment: paymentStatus,
+        payment: payStatus,
         date,
       } as any);
 
       await tx.insert(schema.invoices).values({
         id: invoiceId,
         salesOrderId: orderId,
-        customer,
-        date,
-        due: date,
+        customerId,
+        customer: customerName,
+        issueDate,
+        dueDate,
+        terms,
         subtotal: sale.subtotal,
         tax: sale.tax,
         total: sale.total,
-        paid: paymentStatus === 'paid' ? sale.total : 0,
-        status: paymentStatus,
-        method: payment,
+        status: 'issued',
         channel: 'pos',
         items: totalQty,
       } as any);
@@ -114,6 +178,20 @@ export async function POST(req: NextRequest) {
         })),
       );
 
+      if (plan.payments.length)
+        await tx.insert(schema.payments).values(
+          plan.payments.map((p) => ({
+            id: newPaymentId(),
+            invoiceId,
+            direction: 'payment',
+            method: p.method,
+            amountPaise: p.amountPaise,
+            reference: p.reference,
+            receivedAt: nowIso,
+            recordedBy,
+          })) as any,
+        );
+
       for (const l of sale.lines) {
         const p = byId.get(l.productId)!;
         const newStock = p.stock - l.qty;
@@ -122,7 +200,7 @@ export async function POST(req: NextRequest) {
           .set({
             stock: newStock,
             status: deriveStatus(newStock),
-            updatedAt: now,
+            updatedAt: nowIso,
           } as any)
           .where(and(eq(schema.products.id, p.id), eq(schema.products.stock, p.stock)))
           .run();
@@ -145,15 +223,23 @@ export async function POST(req: NextRequest) {
     throw e;
   }
 
+  const balance = paiseToRupees(totalPaise - plan.paidPaise);
   return NextResponse.json(
     {
-      order: { id: orderId, customer, items: totalQty, total: sale.total, payment: paymentStatus },
-      invoice: { id: invoiceId, total: sale.total, status: paymentStatus },
+      order: {
+        id: orderId,
+        customer: customerName,
+        items: totalQty,
+        total: sale.total,
+        payment: payStatus,
+      },
+      invoice: { id: invoiceId, total: sale.total, payStatus, terms, dueDate },
       receipt: {
         id: orderId,
         invoiceId,
-        customer,
-        payment,
+        customer: customerName,
+        terms,
+        dueDate,
         date: new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
         lines: sale.lines.map((l) => ({
           name: l.name,
@@ -169,6 +255,14 @@ export async function POST(req: NextRequest) {
         discount: sale.discount,
         tax: sale.tax,
         total: sale.total,
+        payments: plan.payments.map((p) => ({
+          method: p.method,
+          amount: paiseToRupees(p.amountPaise),
+          reference: p.reference,
+        })),
+        paid: paiseToRupees(plan.paidPaise),
+        change: paiseToRupees(plan.changePaise),
+        balance,
       },
     },
     { status: 201 },

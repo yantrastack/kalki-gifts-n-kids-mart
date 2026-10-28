@@ -2,27 +2,52 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
+import { useI18n } from '@/i18n';
 import { jget, jsend } from '@/lib/api';
 import { buildSaleLines } from '@/lib/invoice';
+import {
+  PAYMENT_METHODS,
+  isIsoDate,
+  planSalePayments,
+  rupeesToPaise,
+  todayIST,
+  type PaymentMethod,
+} from '@/lib/payments';
 
-const PAYMENTS = [
-  { id: 'card', label: 'Card', icon: 'card' },
-  { id: 'cash', label: 'Cash', icon: 'banknote' },
-  { id: 'wallet', label: 'Wallet', icon: 'wallet' },
-  { id: 'ach', label: 'ACH / Invoice', icon: 'bank' },
-];
+type TenderRow = { key: number; method: PaymentMethod; amount: string; reference: string };
+let nextRowKey = 0;
+const newRow = (method: PaymentMethod, amount: string): TenderRow => ({
+  key: ++nextRowKey,
+  method,
+  amount,
+  reference: '',
+});
+const inDays = (days: number) => {
+  const d = new Date(`${todayIST()}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+// A row's amount in paise, or null if it is empty, zero, negative or has more
+// than two decimals.
+const rowPaise = (r: TenderRow) => {
+  const p = rupeesToPaise(Number(r.amount));
+  return p !== null && p > 0 ? p : null;
+};
 
 export default function POSPage() {
   const { fmt, ProductThumb, Modal, EmptyState, useToast } = UI;
   const toast = useToast();
+  const { t } = useI18n();
   const [products, setProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
   const [cart, setCart] = useState<any[]>([]);
-  const [customer, setCustomer] = useState('Walk-in customer');
+  const [customerId, setCustomerId] = useState('');
   const [discount, setDiscount] = useState(0);
-  const [payment, setPayment] = useState('card');
+  const [credit, setCredit] = useState(false);
+  const [dueDate, setDueDate] = useState('');
+  const [rows, setRows] = useState<TenderRow[]>([]);
   const [showPay, setShowPay] = useState(false);
   const [receipt, setReceipt] = useState<any>(null);
   const [busy, setBusy] = useState(false);
@@ -103,22 +128,69 @@ export default function POSPage() {
   const total = sale.total;
   const totalQty = cart.reduce((s, i) => s + i.qty, 0);
 
+  const registered = customers.filter((c) => c.name !== 'Walk-in customer');
+  const customerName = registered.find((c) => c.id === customerId)?.name ?? t('payments.walkIn');
+  const totalPaise = Math.round(total * 100);
+
+  const openPay = () => {
+    setCredit(false);
+    setRows([newRow('cash', total.toFixed(2))]);
+    setShowPay(true);
+  };
+  // Credit is a sale term, not a payment method: it starts with no payment (the
+  // customer pays later) and needs a due date.
+  const toggleCredit = (on: boolean) => {
+    setCredit(on);
+    if (on) {
+      setRows([]);
+      if (!dueDate) setDueDate(inDays(30));
+    } else setRows([newRow('cash', total.toFixed(2))]);
+  };
+  const setRow = (key: number, patch: Partial<TenderRow>) =>
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+
+  // Mirrors the server's checks (lib/payments.planSalePayments), which are the
+  // ones that count, so the button only enables for a sale the server will take.
+  const rowsValid = rows.every((r) => rowPaise(r) !== null);
+  const tendered = rows.reduce((s, r) => s + (rowPaise(r) ?? 0), 0);
+  const plan = rowsValid
+    ? planSalePayments(
+        totalPaise,
+        credit ? 'credit' : 'immediate',
+        rows.map((r) => ({ method: r.method, amountPaise: rowPaise(r), reference: r.reference })),
+      )
+    : null;
+  const planOk = !!plan && !('error' in plan);
+  const changePaise = plan && 'changePaise' in plan ? plan.changePaise : 0;
+  const remainingPaise = totalPaise - tendered;
+  const creditOk = !credit || (!!customerId && isIsoDate(dueDate) && dueDate >= todayIST());
+  const canComplete = planOk && creditOk && !busy;
+
   const checkout = async () => {
     setBusy(true);
     try {
       const res = await jsend('/api/pos/checkout', 'POST', {
         items: cart.map((i) => ({ productId: i.id, qty: i.qty })),
-        customerName: customer,
+        customerId: customerId || undefined,
         discountPct: discount,
-        payment,
+        terms: credit ? 'credit' : 'immediate',
+        dueDate: credit ? dueDate : undefined,
+        payments: rows.map((r) => ({
+          method: r.method,
+          amount: Number(r.amount),
+          reference: r.reference.trim() || undefined,
+        })),
         cashier: 'Register',
       });
       setShowPay(false);
       setReceipt(res.receipt);
       setCart([]);
       setDiscount(0);
+      setCustomerId('');
+      setCredit(false);
+      setRows([]);
       load();
-      toast({ message: `Sale ${res.order.id} complete`, icon: 'check' });
+      toast({ message: t('payments.saleComplete', { id: res.order.id }), icon: 'check' });
     } catch (e: any) {
       toast({ message: e.message, icon: 'alert', type: 'danger' });
     } finally {
@@ -230,17 +302,15 @@ export default function POSPage() {
             <span>Customer</span>
             <select
               className="select"
-              value={customer}
-              onChange={(e) => setCustomer(e.target.value)}
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
             >
-              <option>Walk-in customer</option>
-              {customers
-                .filter((c) => c.name !== 'Walk-in customer')
-                .map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
+              <option value="">{t('payments.walkIn')}</option>
+              {registered.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </select>
           </label>
         </div>
@@ -315,7 +385,7 @@ export default function POSPage() {
             </span>
           </div>
           <div className="spread">
-            <span className="muted">Tax (8%)</span>
+            <span className="muted">GST</span>
             <span className="mono">{fmt.money(tax)}</span>
           </div>
           <div className="spread pos-total">
@@ -326,7 +396,7 @@ export default function POSPage() {
             className="btn btn-primary"
             style={{ width: '100%', height: 44, justifyContent: 'center', fontSize: 'var(--t-md)' }}
             disabled={cart.length === 0}
-            onClick={() => setShowPay(true)}
+            onClick={openPay}
           >
             <Icon name="card" size={16} /> Charge {fmt.money(total)}
           </button>
@@ -343,7 +413,9 @@ export default function POSPage() {
             alignItems: 'center',
           }}
         >
-          <h3 style={{ margin: 0, fontSize: 'var(--t-lg)', fontWeight: 600 }}>Take payment</h3>
+          <h3 style={{ margin: 0, fontSize: 'var(--t-lg)', fontWeight: 600 }}>
+            {t('payments.takePayment')}
+          </h3>
           <button
             className="icon-btn"
             style={{ marginLeft: 'auto' }}
@@ -352,9 +424,17 @@ export default function POSPage() {
             <Icon name="x" size={16} />
           </button>
         </div>
-        <div style={{ padding: 'var(--s-5)' }}>
-          <div style={{ textAlign: 'center', marginBottom: 20 }}>
-            <div className="muted tiny">Amount due</div>
+        <div
+          style={{
+            padding: 'var(--s-5)',
+            display: 'grid',
+            gap: 16,
+            maxHeight: '75vh',
+            overflow: 'auto',
+          }}
+        >
+          <div style={{ textAlign: 'center' }}>
+            <div className="muted tiny">{t('payments.amountDue')}</div>
             <div
               style={{
                 fontSize: 'var(--t-4xl)',
@@ -366,37 +446,149 @@ export default function POSPage() {
               {fmt.money(total)}
             </div>
             <div className="muted tiny">
-              {totalQty} item{totalQty !== 1 ? 's' : ''} · {customer}
+              {totalQty} item{totalQty !== 1 ? 's' : ''} · {customerName}
             </div>
           </div>
-          <div
-            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}
-          >
-            {PAYMENTS.map((pm) => (
+
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <input
+              type="checkbox"
+              checked={credit}
+              disabled={!customerId}
+              onChange={(e) => toggleCredit(e.target.checked)}
+              style={{ marginTop: 3 }}
+            />
+            <span>
+              <strong>{t('payments.sellOnCredit')}</strong>
+              <div className="muted tiny">
+                {customerId ? t('payments.creditHint') : t('payments.creditNeedsCustomer')}
+              </div>
+            </span>
+          </label>
+
+          {credit && (
+            <label className="field">
+              <span>{t('payments.dueDate')}</span>
+              <input
+                className="input"
+                type="date"
+                min={todayIST()}
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </label>
+          )}
+
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div className="spread">
+              <strong>{t('payments.payments')}</strong>
               <button
-                key={pm.id}
-                onClick={() => setPayment(pm.id)}
-                className="pos-pay"
+                className="btn btn-ghost btn-sm"
+                onClick={() =>
+                  setRows((rs) => [
+                    ...rs,
+                    newRow('cash', remainingPaise > 0 ? (remainingPaise / 100).toFixed(2) : ''),
+                  ])
+                }
+              >
+                <Icon name="plus" size={12} /> {t('payments.addPayment')}
+              </button>
+            </div>
+            {rows.map((r) => (
+              <div
+                key={r.key}
                 style={{
-                  borderColor: payment === pm.id ? 'var(--accent)' : 'var(--border)',
-                  background: payment === pm.id ? 'var(--accent-soft)' : 'var(--bg-elev)',
+                  display: 'grid',
+                  gridTemplateColumns: '1.1fr 1fr 1.2fr auto',
+                  gap: 6,
+                  alignItems: 'end',
                 }}
               >
-                <Icon name={pm.icon} size={18} /> {pm.label}
-              </button>
+                <label className="field">
+                  <span>{t('payments.method')}</span>
+                  <select
+                    className="select"
+                    value={r.method}
+                    onChange={(e) => setRow(r.key, { method: e.target.value as PaymentMethod })}
+                  >
+                    {PAYMENT_METHODS.map((m) => (
+                      <option key={m} value={m}>
+                        {t(`payments.methods.${m}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>{t('payments.amount')}</span>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={r.amount}
+                    onChange={(e) => setRow(r.key, { amount: e.target.value })}
+                  />
+                </label>
+                <label className="field">
+                  <span>{t('payments.reference')}</span>
+                  <input
+                    className="input"
+                    placeholder={t('payments.referenceHint')}
+                    maxLength={120}
+                    value={r.reference}
+                    onChange={(e) => setRow(r.key, { reference: e.target.value })}
+                  />
+                </label>
+                <button
+                  className="icon-btn"
+                  aria-label={t('payments.removePayment')}
+                  onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
+                >
+                  <Icon name="x" size={14} />
+                </button>
+              </div>
             ))}
           </div>
+
+          <div style={{ display: 'grid', gap: 4 }}>
+            <div className="spread">
+              <span className="muted">{t('payments.tendered')}</span>
+              <span className="mono">{fmt.money(tendered / 100)}</span>
+            </div>
+            {remainingPaise > 0 && (
+              <div className="spread">
+                <span className="muted">
+                  {credit ? t('payments.balanceDue') : t('payments.remaining')}
+                </span>
+                <span className="mono" style={{ color: credit ? 'inherit' : 'var(--danger)' }}>
+                  {fmt.money(remainingPaise / 100)}
+                </span>
+              </div>
+            )}
+            {changePaise > 0 && (
+              <div className="spread">
+                <span className="muted">{t('payments.change')}</span>
+                <span className="mono">{fmt.money(changePaise / 100)}</span>
+              </div>
+            )}
+            {rowsValid && remainingPaise < 0 && !planOk && (
+              <div className="tiny" style={{ color: 'var(--danger)' }}>
+                {credit ? t('payments.creditOverpaid') : t('payments.overpaid')}
+              </div>
+            )}
+          </div>
+
           <button
             className="btn btn-primary"
             style={{ width: '100%', height: 44, justifyContent: 'center' }}
-            disabled={busy}
+            disabled={!canComplete}
             onClick={checkout}
           >
             {busy ? (
-              'Processing…'
+              t('payments.processing')
             ) : (
               <>
-                <Icon name="check" size={16} /> Complete sale
+                <Icon name="check" size={16} /> {t('payments.completeSale')}
               </>
             )}
           </button>
@@ -467,10 +659,36 @@ export default function POSPage() {
                   <span>Total</span>
                   <span className="mono">{fmt.money(receipt.total)}</span>
                 </div>
-                <div className="spread" style={{ fontSize: 'var(--t-sm)', marginTop: 4 }}>
-                  <span className="muted">Paid via</span>
-                  <span style={{ textTransform: 'capitalize' }}>{receipt.payment}</span>
-                </div>
+                {receipt.payments.map((p: any, i: number) => (
+                  <div key={i} className="spread" style={{ fontSize: 'var(--t-sm)', marginTop: 4 }}>
+                    <span className="muted">
+                      {t('payments.paidVia')} {t(`payments.methods.${p.method}`)}
+                      {p.reference ? ` · ${p.reference}` : ''}
+                    </span>
+                    <span className="mono">{fmt.money(p.amount)}</span>
+                  </div>
+                ))}
+                {receipt.change > 0 && (
+                  <div className="spread" style={{ fontSize: 'var(--t-sm)', marginTop: 4 }}>
+                    <span className="muted">{t('payments.change')}</span>
+                    <span className="mono">{fmt.money(receipt.change)}</span>
+                  </div>
+                )}
+                {receipt.terms === 'credit' && (
+                  <>
+                    <div className="spread" style={{ fontSize: 'var(--t-sm)', marginTop: 4 }}>
+                      <span className="muted">
+                        {t('payments.creditSale')} ·{' '}
+                        {t('payments.dueOn', { date: receipt.dueDate })}
+                      </span>
+                      <span />
+                    </div>
+                    <div className="spread" style={{ fontSize: 'var(--t-sm)', marginTop: 4 }}>
+                      <span className="muted">{t('payments.balanceDue')}</span>
+                      <span className="mono">{fmt.money(receipt.balance)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <div

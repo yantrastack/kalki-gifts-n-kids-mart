@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export const warehouses = sqliteTable('warehouses', {
@@ -188,13 +188,29 @@ export const invoices = sqliteTable(
   {
     id: text('id').primaryKey(),
     salesOrderId: text('sales_order_id').references(() => salesOrders.id),
+    customerId: text('customer_id').references(() => customers.id),
     customer: text('customer'),
+    // Locale-string dates, kept only for rows that predate issue_date/due_date.
     date: text('date'),
     due: text('due'),
+    // ISO dates (YYYY-MM-DD). due_date is null for 'immediate' terms; overdue is
+    // derived from it, never stored.
+    issueDate: text('issue_date'),
+    dueDate: text('due_date'),
+    // 'immediate' (paid at the counter) or 'credit' (goods now, pay later).
+    // Credit is a sale term, not a payment method.
+    terms: text('terms').notNull().default('immediate'),
     subtotal: real('subtotal').default(0),
     tax: real('tax').default(0),
     total: real('total').default(0),
+    // Deprecated: paid and method are derived from `payments` now and are no
+    // longer written. Kept for one release so the derived values can be
+    // checked against them, then dropped.
     paid: real('paid').default(0),
+    // Lifecycle only: 'issued' or 'void'. paid/partial/unpaid/overdue are derived
+    // from payments (lib/payments.ts), so code treats anything but 'void' as live.
+    // The column default is left as-is: changing a SQLite default forces a table
+    // rebuild, so inserts set 'issued' explicitly instead.
     status: text('status').default('unpaid'),
     method: text('method'),
     channel: text('channel'),
@@ -228,13 +244,42 @@ export const invoiceItems = sqliteTable('invoice_items', {
 export const returns = sqliteTable('returns', {
   id: text('id').primaryKey(),
   customer: text('customer'),
+  // Free text, kept for returns that predate invoice_id. New returns link by invoice_id.
   invoice: text('invoice'),
+  invoiceId: text('invoice_id').references(() => invoices.id),
+  creditNoteNo: text('credit_note_no'),
   items: integer('items').default(0),
   total: real('total').default(0),
   reason: text('reason'),
   status: text('status').default('pending'),
   date: text('date'),
 });
+
+// One row per money movement against an invoice. Amounts are integer paise to
+// avoid float drift. direction 'payment' is money in, 'refund' is money out and
+// links to the return it settles. Paid/partial/unpaid and overdue are derived
+// from these rows (lib/payments.ts); they are never stored on the invoice.
+export const payments = sqliteTable(
+  'payments',
+  {
+    id: text('id').primaryKey(),
+    invoiceId: text('invoice_id')
+      .notNull()
+      .references(() => invoices.id, { onDelete: 'restrict' }),
+    direction: text('direction').notNull(),
+    method: text('method').notNull(),
+    amountPaise: integer('amount_paise').notNull(),
+    reference: text('reference'),
+    returnId: text('return_id').references(() => returns.id),
+    receivedAt: text('received_at').notNull(),
+    recordedBy: text('recorded_by'),
+    note: text('note'),
+    createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  },
+  (table) => ({
+    invoiceIdx: index('payments_invoice_idx').on(table.invoiceId),
+  }),
+);
 
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
@@ -244,4 +289,5 @@ export const settings = sqliteTable('settings', {
 export type Invoice = typeof invoices.$inferSelect;
 export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type Return = typeof returns.$inferSelect;
+export type Payment = typeof payments.$inferSelect;
 export type Setting = typeof settings.$inferSelect;

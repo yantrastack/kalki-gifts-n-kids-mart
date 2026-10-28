@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
+import { paymentsByInvoice } from '@/lib/invoiceQueries';
+import { summarizeInvoice } from '@/lib/payments';
 
 export async function GET() {
   const products = await db.select().from(schema.products).all();
@@ -58,14 +60,17 @@ export async function GET() {
     .sort((a, b) => b.spend - a.spend);
 
   // AR ageing (invoices)
-  const ar = { paid: 0, partial: 0, unpaid: 0, overdue: 0 } as Record<string, number>;
+  // Buckets come from the derived status (paid/partial/unpaid/overdue), not a stored one.
+  const payments = await paymentsByInvoice();
+  const arPaise = { paid: 0, partial: 0, unpaid: 0, overdue: 0 } as Record<string, number>;
   for (const i of invoices) {
-    if (i.status === 'void') continue;
-    ar[i.status] = (ar[i.status] || 0) + (i.total - (i.paid || 0));
+    const s = summarizeInvoice(i, payments.get(i.id) ?? []);
+    if (s.displayStatus === 'void') continue;
+    arPaise[s.displayStatus] = (arPaise[s.displayStatus] || 0) + s.balancePaise;
   }
-  const receivables = Object.entries(ar).map(([status, outstanding]) => ({
+  const receivables = Object.entries(arPaise).map(([status, paise]) => ({
     status,
-    outstanding: Math.round(outstanding),
+    outstanding: Math.round(paise / 100),
   }));
 
   return NextResponse.json({ valuation, lowStock, salesByStatus, supplierPerf, receivables });

@@ -2,16 +2,66 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
+import { useI18n } from '@/i18n';
 import { jget, jsend } from '@/lib/api';
+import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/payments';
+
+const fmtDay = (iso?: string | null, fallback = '—') =>
+  iso
+    ? new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    : fallback;
+const fmtStamp = (iso: string) =>
+  new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+
+// Every payment and refund against an invoice, oldest first. Refunds show as
+// negative amounts.
+function PaymentHistory({ rows }: { rows: any[] }) {
+  const { t } = useI18n();
+  const { fmt } = UI;
+  if (!rows.length) return <div className="muted tiny">{t('payments.noPayments')}</div>;
+  return (
+    <div style={{ display: 'grid', gap: 6 }}>
+      {rows.map((p) => (
+        <div key={p.id} className="spread" style={{ fontSize: 'var(--t-sm)' }}>
+          <span>
+            {p.direction === 'refund' ? `${t('payments.refundRow')} · ` : ''}
+            {t(`payments.methods.${p.method}`)}
+            <span className="muted tiny">
+              {' '}
+              · {fmtStamp(p.receivedAt)}
+              {p.reference ? ` · ${p.reference}` : ''}
+            </span>
+          </span>
+          <span
+            className="mono"
+            style={{ color: p.direction === 'refund' ? 'var(--danger)' : 'inherit' }}
+          >
+            {p.direction === 'refund' ? '−' : ''}
+            {fmt.money(p.amount)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function InvoicesPage() {
   const { fmt, statusBadge, Kpi2, Modal, Dropdown, MenuItem, useToast } = UI;
   const toast = useToast();
+  const { t } = useI18n();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [payFor, setPayFor] = useState<any>(null);
+  const [payHistory, setPayHistory] = useState<any[]>([]);
+  const [method, setMethod] = useState<PaymentMethod>('cash');
   const [payAmount, setPayAmount] = useState('');
+  const [payReference, setPayReference] = useState('');
+  const [busy, setBusy] = useState(false);
   const [detail, setDetail] = useState<any>(null);
 
   const load = () => jget('/api/invoices').then(setInvoices);
@@ -19,17 +69,40 @@ export default function InvoicesPage() {
     load();
   }, []);
 
-  const live = invoices.filter((i) => i.status !== 'void');
-  const outstanding = live.reduce((s, i) => s + (i.total - (i.paid || 0)), 0);
-  const overdue = live.filter((i) => i.status === 'overdue');
-  const paidTotal = live.reduce((s, i) => s + (i.paid || 0), 0);
+  // Status comes from the API's derived fields (paid/partial/unpaid from payment
+  // rows, overdue from the due date); void invoices are left out of the money.
+  const live = invoices.filter((i) => i.displayStatus !== 'void');
+  const outstanding = live.reduce((s, i) => s + i.balance, 0);
+  const overdue = live.filter((i) => i.isOverdue);
+  const paidTotal = live.reduce((s, i) => s + i.paidAmount, 0);
+
+  const filtered = useMemo(
+    () =>
+      invoices.filter((i) => {
+        const voided = i.displayStatus === 'void';
+        if (filter === 'void' && !voided) return false;
+        if (filter === 'overdue' && !i.isOverdue) return false;
+        if (['paid', 'partial', 'unpaid'].includes(filter) && (voided || i.payStatus !== filter))
+          return false;
+        if (
+          query &&
+          !(
+            i.id.toLowerCase().includes(query.toLowerCase()) ||
+            (i.customer || '').toLowerCase().includes(query.toLowerCase())
+          )
+        )
+          return false;
+        return true;
+      }),
+    [invoices, filter, query],
+  );
 
   const openDetail = async (inv: any) => setDetail(await jget(`/api/invoices/${inv.id}`));
   const voidInvoice = async (inv: any) => {
-    if (!window.confirm(`Void invoice ${inv.id}? Its items go back into stock.`)) return;
+    if (!window.confirm(t('payments.voidConfirm', { id: inv.id }))) return;
     try {
       await jsend(`/api/invoices/${inv.id}`, 'PUT', { status: 'void' });
-      toast({ message: `Voided ${inv.id}`, icon: 'check' });
+      toast({ message: t('payments.voided', { id: inv.id }), icon: 'check' });
       setDetail(null);
       load();
     } catch (e: any) {
@@ -46,35 +119,31 @@ export default function InvoicesPage() {
     window.print();
   };
 
-  const filtered = useMemo(
-    () =>
-      invoices.filter((i) => {
-        if (filter !== 'all' && i.status !== filter) return false;
-        if (
-          query &&
-          !(
-            i.id.toLowerCase().includes(query.toLowerCase()) ||
-            (i.customer || '').toLowerCase().includes(query.toLowerCase())
-          )
-        )
-          return false;
-        return true;
-      }),
-    [invoices, filter, query],
-  );
-
   const openPay = (inv: any) => {
     setPayFor(inv);
-    setPayAmount(String((inv.total - (inv.paid || 0)).toFixed(2)));
+    setMethod('cash');
+    setPayAmount(inv.balance.toFixed(2));
+    setPayReference('');
+    setPayHistory([]);
+    jget(`/api/invoices/${inv.id}/payments`)
+      .then(setPayHistory)
+      .catch(() => setPayHistory([]));
   };
   const recordPayment = async () => {
+    setBusy(true);
     try {
-      await jsend(`/api/invoices/${payFor.id}`, 'PUT', { pay: Number(payAmount), method: 'Card' });
-      toast({ message: `Payment recorded for ${payFor.id}`, icon: 'check' });
+      await jsend(`/api/invoices/${payFor.id}/payments`, 'POST', {
+        method,
+        amount: Number(payAmount),
+        reference: payReference.trim() || undefined,
+      });
+      toast({ message: t('payments.recorded', { id: payFor.id }), icon: 'check' });
       setPayFor(null);
       load();
     } catch (e: any) {
       toast({ message: e.message, icon: 'alert', type: 'danger' });
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -111,7 +180,7 @@ export default function InvoicesPage() {
         <Kpi2
           label="Overdue"
           value={String(overdue.length)}
-          sub={`${fmt.moneyCompact(overdue.reduce((s, i) => s + (i.total - i.paid), 0))} owed`}
+          sub={`${fmt.moneyCompact(overdue.reduce((s, i) => s + i.balance, 0))} owed`}
           color="var(--danger)"
         />
         <Kpi2 label="Invoices" value={String(invoices.length)} sub="all time" />
@@ -134,10 +203,11 @@ export default function InvoicesPage() {
             onChange={(e) => setFilter(e.target.value)}
           >
             <option value="all">All statuses</option>
-            <option value="paid">Paid</option>
-            <option value="partial">Partial</option>
-            <option value="unpaid">Unpaid</option>
-            <option value="overdue">Overdue</option>
+            <option value="paid">{t('payments.status.paid')}</option>
+            <option value="partial">{t('payments.status.partial')}</option>
+            <option value="unpaid">{t('payments.status.unpaid')}</option>
+            <option value="overdue">{t('payments.status.overdue')}</option>
+            <option value="void">{t('payments.status.void')}</option>
           </select>
         </div>
         <div className="table-scroll">
@@ -151,51 +221,64 @@ export default function InvoicesPage() {
                 <th className="col-num">Paid</th>
                 <th className="col-num">Balance</th>
                 <th>Status</th>
-                <th>Due</th>
+                <th>{t('payments.dueDate')}</th>
                 <th style={{ width: 36 }}></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((i) => (
-                <tr key={i.id}>
-                  <td className="mono" style={{ fontWeight: 500 }}>
-                    {i.id}
-                  </td>
-                  <td>{i.customer}</td>
-                  <td className="muted">{i.channel}</td>
-                  <td className="col-num mono">{fmt.money(i.total)}</td>
-                  <td className="col-num mono muted">{fmt.money(i.paid)}</td>
-                  <td
-                    className="col-num mono"
-                    style={{ color: i.total - i.paid > 0 ? 'var(--danger)' : 'var(--fg-tertiary)' }}
-                  >
-                    {i.total - i.paid > 0 ? fmt.money(i.total - i.paid) : '—'}
-                  </td>
-                  <td>{statusBadge(i.status)}</td>
-                  <td className="muted">{i.due}</td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <Dropdown
-                      trigger={
-                        <button className="icon-btn" style={{ width: 26, height: 26 }}>
-                          <Icon name="more" size={14} />
-                        </button>
-                      }
+              {filtered.map((i) => {
+                const voided = i.displayStatus === 'void';
+                return (
+                  <tr key={i.id}>
+                    <td className="mono" style={{ fontWeight: 500 }}>
+                      {i.id}
+                    </td>
+                    <td>{i.customer}</td>
+                    <td className="muted">{i.channel}</td>
+                    <td className="col-num mono">{fmt.money(i.total)}</td>
+                    <td className="col-num mono muted">{fmt.money(i.paidAmount)}</td>
+                    <td
+                      className="col-num mono"
+                      style={{
+                        color: !voided && i.balance > 0 ? 'var(--danger)' : 'var(--fg-tertiary)',
+                      }}
                     >
-                      <MenuItem
-                        icon="receipt2"
-                        label="View invoice"
-                        onClick={() => openDetail(i)}
-                      />
-                      {i.status !== 'void' && i.total - i.paid > 0 && (
-                        <MenuItem icon="card" label="Record payment" onClick={() => openPay(i)} />
-                      )}
-                      {i.status !== 'void' && (
-                        <MenuItem icon="x" label="Void invoice" onClick={() => voidInvoice(i)} />
-                      )}
-                    </Dropdown>
-                  </td>
-                </tr>
-              ))}
+                      {!voided && i.balance > 0 ? fmt.money(i.balance) : '—'}
+                    </td>
+                    <td>{statusBadge(i.displayStatus)}</td>
+                    <td className="muted">{fmtDay(i.dueDate, i.due || '—')}</td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <Dropdown
+                        trigger={
+                          <button className="icon-btn" style={{ width: 26, height: 26 }}>
+                            <Icon name="more" size={14} />
+                          </button>
+                        }
+                      >
+                        <MenuItem
+                          icon="receipt2"
+                          label={t('payments.view')}
+                          onClick={() => openDetail(i)}
+                        />
+                        {!voided && i.balance > 0 && (
+                          <MenuItem
+                            icon="card"
+                            label={t('payments.recordPayment')}
+                            onClick={() => openPay(i)}
+                          />
+                        )}
+                        {!voided && (
+                          <MenuItem
+                            icon="x"
+                            label={t('payments.void')}
+                            onClick={() => voidInvoice(i)}
+                          />
+                        )}
+                      </Dropdown>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={9}>
@@ -212,7 +295,7 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      <Modal open={!!payFor} onClose={() => setPayFor(null)}>
+      <Modal open={!!payFor} onClose={() => !busy && setPayFor(null)}>
         {payFor && (
           <>
             <div
@@ -224,7 +307,7 @@ export default function InvoicesPage() {
               }}
             >
               <h3 style={{ margin: 0, fontSize: 'var(--t-lg)', fontWeight: 600 }}>
-                Record payment
+                {t('payments.recordPayment')}
               </h3>
               <button
                 className="icon-btn"
@@ -234,20 +317,50 @@ export default function InvoicesPage() {
                 <Icon name="x" size={16} />
               </button>
             </div>
-            <div style={{ padding: 'var(--s-5)' }}>
-              <div className="muted tiny" style={{ marginBottom: 12 }}>
-                {payFor.id} · {payFor.customer} · balance{' '}
-                <strong className="mono">{fmt.money(payFor.total - payFor.paid)}</strong>
+            <div style={{ padding: 'var(--s-5)', display: 'grid', gap: 12 }}>
+              <div className="muted tiny">
+                {payFor.id} · {payFor.customer} · {t('payments.balance')}{' '}
+                <strong className="mono">{fmt.money(payFor.balance)}</strong>
               </div>
               <label className="field">
-                <span>Amount</span>
+                <span>{t('payments.method')}</span>
+                <select
+                  className="select"
+                  value={method}
+                  onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+                >
+                  {PAYMENT_METHODS.map((m) => (
+                    <option key={m} value={m}>
+                      {t(`payments.methods.${m}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>{t('payments.amount')}</span>
                 <input
                   className="input"
                   type="number"
+                  min="0"
+                  step="0.01"
                   value={payAmount}
                   onChange={(e) => setPayAmount(e.target.value)}
                 />
               </label>
+              <label className="field">
+                <span>{t('payments.reference')}</span>
+                <input
+                  className="input"
+                  placeholder={t('payments.referenceHint')}
+                  maxLength={120}
+                  value={payReference}
+                  onChange={(e) => setPayReference(e.target.value)}
+                />
+              </label>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <strong style={{ fontSize: 'var(--t-sm)' }}>{t('payments.history')}</strong>
+                <PaymentHistory rows={payHistory} />
+              </div>
             </div>
             <div
               style={{
@@ -260,14 +373,14 @@ export default function InvoicesPage() {
               }}
             >
               <button className="btn btn-secondary" onClick={() => setPayFor(null)}>
-                Cancel
+                {t('payments.cancel')}
               </button>
               <button
                 className="btn btn-primary"
                 onClick={recordPayment}
-                disabled={!Number(payAmount)}
+                disabled={busy || !(Number(payAmount) > 0)}
               >
-                <Icon name="check" size={14} /> Record
+                <Icon name="check" size={14} /> {t('payments.record')}
               </button>
             </div>
           </>
@@ -290,10 +403,14 @@ export default function InvoicesPage() {
                 <h3 style={{ margin: 0, fontSize: 'var(--t-lg)', fontWeight: 600 }}>
                   Invoice {detail.id}
                 </h3>
-                <span style={{ marginLeft: 'auto' }}>{statusBadge(detail.status)}</span>
+                <span style={{ marginLeft: 'auto' }}>{statusBadge(detail.displayStatus)}</span>
               </div>
               <div className="muted tiny">
-                {detail.customer} · {detail.date} · {detail.channel}
+                {detail.customer} · {fmtDay(detail.issueDate, detail.date || '—')} ·{' '}
+                {detail.channel}
+                {detail.terms === 'credit' && detail.dueDate
+                  ? ` · ${t('payments.dueOn', { date: fmtDay(detail.dueDate) })}`
+                  : ''}
               </div>
               {detail.lines?.length ? (
                 <table className="dt">
@@ -329,13 +446,24 @@ export default function InvoicesPage() {
                   </tbody>
                 </table>
               ) : (
-                <div className="muted tiny">No line detail: this invoice predates line items.</div>
+                <div className="muted tiny">{t('payments.noLines')}</div>
               )}
               <div style={{ display: 'grid', gap: 4, justifySelf: 'end', minWidth: 240 }}>
                 <div className="muted">Subtotal · {fmt.money(detail.subtotal)}</div>
                 <div className="muted">Tax · {fmt.money(detail.tax)}</div>
-                <div style={{ fontWeight: 600 }}>Total · {fmt.money(detail.total)}</div>
-                <div className="muted">Paid · {fmt.money(detail.paid)}</div>
+                <div style={{ fontWeight: 600 }}>
+                  {t('payments.total')} · {fmt.money(detail.total)}
+                </div>
+                <div className="muted">
+                  {t('payments.paid')} · {fmt.money(detail.paidAmount)}
+                </div>
+                <div className="muted">
+                  {t('payments.balance')} · {fmt.money(detail.balance)}
+                </div>
+              </div>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <strong style={{ fontSize: 'var(--t-sm)' }}>{t('payments.history')}</strong>
+                <PaymentHistory rows={detail.payments ?? []} />
               </div>
             </div>
             <div
@@ -348,13 +476,13 @@ export default function InvoicesPage() {
                 background: 'var(--bg-muted)',
               }}
             >
-              {detail.status !== 'void' && (
+              {detail.displayStatus !== 'void' && (
                 <button className="btn btn-secondary" onClick={() => voidInvoice(detail)}>
-                  Void invoice
+                  {t('payments.void')}
                 </button>
               )}
               <button className="btn btn-primary" onClick={printInvoice}>
-                <Icon name="printer" size={14} /> Print
+                <Icon name="printer" size={14} /> {t('payments.print')}
               </button>
             </div>
           </>
