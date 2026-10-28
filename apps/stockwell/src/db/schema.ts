@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export const warehouses = sqliteTable('warehouses', {
@@ -20,37 +20,49 @@ export const suppliers = sqliteTable('suppliers', {
   spend: real('spend').default(0),
 });
 
-export const products = sqliteTable('products', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  sku: text('sku').notNull(),
-  barcode: text('barcode'),
-  category: text('category'),
-  brand: text('brand'),
-  price: real('price').notNull().default(0),
-  cost: real('cost').notNull().default(0),
-  stock: integer('stock').notNull().default(0),
-  reserved: integer('reserved').notNull().default(0),
-  incoming: integer('incoming').notNull().default(0),
-  damaged: integer('damaged').notNull().default(0),
-  warehouse: text('warehouse').references(() => warehouses.id),
-  supplier: text('supplier'),
-  status: text('status').notNull().default('active'),
-  tag: text('tag'),
-  hsnCode: text('hsn_code'),
-  gstRate: real('gst_rate').default(0),
-  mrp: real('mrp'),
-  expiry: text('expiry'),
-  // Gift-finder attributes (CSV lists; empty = not tagged for gifting)
-  giftOccasions: text('gift_occasions'), // e.g. "wedding,birthday"
-  giftRecipients: text('gift_recipients'), // e.g. "men,kids"
-  giftAgeMin: integer('gift_age_min'),
-  giftAgeMax: integer('gift_age_max'),
-  giftTypes: text('gift_types'), // e.g. "watch,wallet"
-  giftInterests: text('gift_interests'), // e.g. "music,sports"
-  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
-  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
-});
+export const products = sqliteTable(
+  'products',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    sku: text('sku').notNull(),
+    barcode: text('barcode'),
+    category: text('category'),
+    brand: text('brand'),
+    price: real('price').notNull().default(0),
+    cost: real('cost').notNull().default(0),
+    stock: integer('stock').notNull().default(0),
+    reserved: integer('reserved').notNull().default(0),
+    incoming: integer('incoming').notNull().default(0),
+    damaged: integer('damaged').notNull().default(0),
+    warehouse: text('warehouse').references(() => warehouses.id),
+    supplier: text('supplier'),
+    status: text('status').notNull().default('active'), // stock level only — see lib/status.ts
+    // Catalog lifecycle — separate from `status` above. draft: incomplete/not
+    // reviewed (never sellable or publicly visible, regardless of stock).
+    // active: reviewed and complete, normal sellable state. discontinued:
+    // retired, kept for history. See lib/catalog.ts.
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    tag: text('tag'),
+    hsnCode: text('hsn_code'),
+    gstRate: real('gst_rate').default(0),
+    mrp: real('mrp'),
+    expiry: text('expiry'),
+    // Gift-finder attributes (CSV lists; empty = not tagged for gifting)
+    giftOccasions: text('gift_occasions'), // e.g. "wedding,birthday"
+    giftRecipients: text('gift_recipients'), // e.g. "men,kids"
+    giftAgeMin: integer('gift_age_min'),
+    giftAgeMax: integer('gift_age_max'),
+    giftTypes: text('gift_types'), // e.g. "watch,wallet"
+    giftInterests: text('gift_interests'), // e.g. "music,sports"
+    createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+    updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
+  },
+  (table) => ({
+    // Case/whitespace-insensitive uniqueness, enforced at the DB level.
+    skuNormUnique: uniqueIndex('products_sku_norm_unique').on(sql`UPPER(TRIM(${table.sku}))`),
+  }),
+);
 
 export const productMedia = sqliteTable('product_media', {
   id: text('id').primaryKey(),

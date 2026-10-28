@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { asc, desc, sql } from 'drizzle-orm';
 import { csvToList, type FeedProduct, type FeedResponse, type ShopMedia } from '@stockwell/shared';
+import { isPublic } from '@/lib/catalog';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };
 
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
   const shareBy = new Map(shareCounts.map((r) => [r.productId, Math.max(Number(r.n) || 0, 0)]));
 
   // Sellable set, in feed order.
-  const sellable = rows.filter((p) => p.status !== 'out' && p.stock > 0);
+  const sellable = rows.filter((p) => isPublic(p as any) && p.stock > 0);
   const cover = (id: string) =>
     mediaByProduct.get(id)?.find((m) => m.type === 'image')?.url ?? null;
 

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { deriveStatus } from '@/lib/status';
+import { isSellable } from '@/lib/catalog';
 import { inArray, eq } from 'drizzle-orm';
 
 const TAX_RATE = 0.08;
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest) {
     const p = byId.get(it.productId);
     if (!p)
       return NextResponse.json({ error: `Product ${it.productId} not found` }, { status: 404 });
+    if (!isSellable(p as any))
+      return NextResponse.json({ error: `${p.name} is not available for sale` }, { status: 409 });
     if (p.stock < it.qty)
       return NextResponse.json(
         { error: `Insufficient stock for ${p.name} (have ${p.stock}, need ${it.qty})` },
