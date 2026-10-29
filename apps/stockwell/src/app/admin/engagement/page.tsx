@@ -61,15 +61,26 @@ export default function EngagementPage() {
           </div>
         </div>
         <div className="table-scroll">
-          <table className="table">
+          <table
+            className="dt dt-report"
+            style={{ '--report-min': '860px' } as React.CSSProperties}
+          >
+            <colgroup>
+              <col style={{ width: '38%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '22%' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Product</th>
-                <th className="col-num">Views</th>
-                <th className="col-num">Likes</th>
-                <th className="col-num">Shares</th>
-                <th className="col-num">Buys</th>
-                <th style={{ width: 200 }}>Engagement</th>
+                <th className="col-center">Views</th>
+                <th className="col-center">Likes</th>
+                <th className="col-center">Shares</th>
+                <th className="col-center">Buys</th>
+                <th>Engagement</th>
               </tr>
             </thead>
             <tbody>
@@ -84,12 +95,12 @@ export default function EngagementPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="col-num mono">{fmt.int(p.views)}</td>
-                  <td className="col-num mono" style={{ color: '#e0466b' }}>
+                  <td className="col-center mono">{fmt.int(p.views)}</td>
+                  <td className="col-center mono" style={{ color: '#e0466b' }}>
                     {fmt.int(p.likes)}
                   </td>
-                  <td className="col-num mono">{fmt.int(p.shares)}</td>
-                  <td className="col-num mono" style={{ color: 'var(--success)' }}>
+                  <td className="col-center mono">{fmt.int(p.shares)}</td>
+                  <td className="col-center mono" style={{ color: 'var(--success)' }}>
                     {fmt.int(p.buys)}
                   </td>
                   <td>
