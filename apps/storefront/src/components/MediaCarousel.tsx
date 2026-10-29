@@ -1,12 +1,22 @@
-import { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, useWindowDimensions } from 'react-native';
+import { useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  Pressable,
+  Platform,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { Image } from 'expo-image';
+import { Feather } from '@expo/vector-icons';
+import { useI18n } from '../i18n';
 import VideoPlayer from './VideoPlayer';
 import { type Theme, thumbColor, initials } from '../theme';
 import { mediaUrl } from '../api';
 import type { ShopMedia } from '@stockwell/shared';
 
-/** Swipeable gallery of a product's photos and videos, with dot indicators. */
+/** Gallery of a product's photos and videos: swipe, arrows (web), tappable dots, counter. */
 export default function MediaCarousel({
   media,
   productName,
@@ -17,7 +27,15 @@ export default function MediaCarousel({
   theme: Theme;
 }) {
   const { width } = useWindowDimensions();
+  const { t } = useI18n();
   const [index, setIndex] = useState(0);
+  const listRef = useRef<FlatList<ShopMedia>>(null);
+
+  const goTo = (i: number) => {
+    setIndex(i);
+    listRef.current?.scrollToIndex({ index: i, animated: true });
+  };
+  const showArrows = Platform.OS === 'web' && media.length > 1;
 
   if (!media.length) {
     return (
@@ -35,7 +53,9 @@ export default function MediaCarousel({
   return (
     <View>
       <FlatList
+        ref={listRef}
         data={media}
+        getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -54,12 +74,36 @@ export default function MediaCarousel({
           )
         }
       />
+      {showArrows && index > 0 && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('product.prevImage')}
+          onPress={() => goTo(index - 1)}
+          style={[styles.arrow, styles.arrowLeft]}
+        >
+          <Feather name="chevron-left" size={22} color={theme.accent} />
+        </Pressable>
+      )}
+      {showArrows && index < media.length - 1 && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('product.nextImage')}
+          onPress={() => goTo(index + 1)}
+          style={[styles.arrow, styles.arrowRight]}
+        >
+          <Feather name="chevron-right" size={22} color={theme.accent} />
+        </Pressable>
+      )}
       {media.length > 1 && (
         <>
           <View style={styles.dots}>
             {media.map((m, i) => (
-              <View
+              <Pressable
                 key={m.id}
+                accessibilityRole="button"
+                accessibilityLabel={t('product.goToImage', { n: i + 1 })}
+                hitSlop={8}
+                onPress={() => goTo(i)}
                 style={[
                   styles.dot,
                   { backgroundColor: i === index ? theme.accent : 'rgba(255,255,255,0.7)' },
@@ -82,9 +126,23 @@ export default function MediaCarousel({
 const styles = StyleSheet.create({
   fallback: { alignItems: 'center', justifyContent: 'center' },
   fallbackText: { color: '#fff', fontSize: 64, fontWeight: '800' },
-  dots: { position: 'absolute', bottom: 14, alignSelf: 'center', flexDirection: 'row', gap: 6 },
+  // bottom clears the 20px the product sheet overlaps onto the gallery.
+  dots: { position: 'absolute', bottom: 34, alignSelf: 'center', flexDirection: 'row', gap: 6 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   dotActive: { width: 18 },
+  arrow: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  arrowLeft: { left: 12 },
+  arrowRight: { right: 12 },
   counter: {
     position: 'absolute',
     top: 12,
@@ -94,5 +152,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  counterText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  counterText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 });
