@@ -242,6 +242,13 @@ export const te: Dict = {
     pagination: 'కస్టమర్ జాబితా పేజీలు',
   },
 
+  engagement: {
+    showing: '{total} లో {from}–{to} చూపిస్తోంది',
+    prev: 'మునుపటి',
+    next: 'తదుపరి',
+    pagination: 'టాప్ ఉత్పత్తుల పేజీలు',
+  },
+
   payments: {
     methods: {
       cash: 'నగదు',

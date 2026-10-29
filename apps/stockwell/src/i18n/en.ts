@@ -248,6 +248,14 @@ export const en = {
     pagination: 'Customer list pages',
   },
 
+  // Engagement page: top-products table paging.
+  engagement: {
+    showing: 'Showing {from}–{to} of {total}',
+    prev: 'Previous',
+    next: 'Next',
+    pagination: 'Top products pages',
+  },
+
   // Payments, invoices and refunds (POS, Invoices and Returns pages).
   payments: {
     methods: {

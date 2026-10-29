@@ -10,6 +10,8 @@ export default function EngagementPage() {
   const { fmt, Kpi2, ProductThumb } = UI;
   const { t } = useI18n();
   const [data, setData] = useState<EngagementSummary | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     jget('/api/analytics/engagement').then(setData);
@@ -25,6 +27,14 @@ export default function EngagementPage() {
   const { totals, products } = data;
   const rate = totals.views ? (totals.likes + totals.shares + totals.buys) / totals.views : 0;
   const maxScore = Math.max(1, ...products.map((p) => p.score));
+  // Client-side paging over the already score-sorted list, as on Inventory. Bars stay
+  // scaled to the overall top score so they compare across pages.
+  const totalPages = Math.max(1, Math.ceil(products.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = products.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  // Up to 5 page buttons, centred on the current page.
+  const firstPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  const pageNums = Array.from({ length: Math.min(5, totalPages) }, (_, i) => firstPage + i);
 
   return (
     <div className="page">
@@ -84,7 +94,7 @@ export default function EngagementPage() {
               </tr>
             </thead>
             <tbody>
-              {products.map((p) => (
+              {pageItems.map((p) => (
                 <tr key={p.id}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -156,6 +166,55 @@ export default function EngagementPage() {
             </tbody>
           </table>
         </div>
+        {products.length > pageSize && (
+          <nav
+            aria-label={t('engagement.pagination')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 8,
+              padding: '12px 16px',
+              borderTop: '1px solid var(--border-subtle)',
+              fontSize: 'var(--t-sm)',
+            }}
+          >
+            <span className="muted">
+              {t('engagement.showing', {
+                from: fmt.int((currentPage - 1) * pageSize + 1),
+                to: fmt.int(Math.min(currentPage * pageSize, products.length)),
+                total: fmt.int(products.length),
+              })}
+            </span>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={currentPage === 1}
+                onClick={() => setPage(currentPage - 1)}
+              >
+                <Icon name="chevLeft" size={12} /> {t('engagement.prev')}
+              </button>
+              {pageNums.map((n) => (
+                <button
+                  key={n}
+                  className={`btn btn-sm ${currentPage === n ? 'btn-secondary' : 'btn-ghost'}`}
+                  aria-current={currentPage === n ? 'page' : undefined}
+                  onClick={() => setPage(n)}
+                  style={{ minWidth: 30, justifyContent: 'center' }}
+                >
+                  {n}
+                </button>
+              ))}
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setPage(currentPage + 1)}
+              >
+                {t('engagement.next')} <Icon name="chevRight" size={12} />
+              </button>
+            </div>
+          </nav>
+        )}
       </div>
     </div>
   );
