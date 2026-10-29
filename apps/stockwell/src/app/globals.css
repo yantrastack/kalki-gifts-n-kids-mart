@@ -1239,6 +1239,99 @@ table.dt.dt-fixed tbody td.col-center {
   background: var(--bg-muted);
 }
 
+/* Confirmation dialog (inside .modal.modal-sm): centred icon badge, title, the item's
+   name as a pill, two short points, then full-width actions. */
+.confirm {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--s-6) var(--s-5) var(--s-5);
+  text-align: center;
+  /* .modal clips its children; scroll instead of hiding the buttons on short screens. */
+  min-height: 0;
+  overflow-y: auto;
+}
+.confirm > * {
+  flex-shrink: 0;
+}
+.confirm-close {
+  position: absolute;
+  top: var(--s-3);
+  right: var(--s-3);
+}
+.confirm-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-full);
+  background: var(--danger-soft);
+  color: var(--danger);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--danger-soft) 45%, transparent);
+  margin-bottom: var(--s-4);
+}
+.confirm-title {
+  font-size: var(--t-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.confirm-name {
+  margin-top: var(--s-3);
+  max-width: 100%;
+  padding: 4px 12px;
+  border-radius: var(--r-full);
+  background: var(--bg-muted);
+  border: 1px solid var(--border-subtle);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.confirm-points {
+  list-style: none;
+  margin: var(--s-4) 0 0;
+  padding: var(--s-3);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  text-align: left;
+  background: var(--bg-muted);
+  border-radius: var(--r-lg);
+  font-size: var(--t-sm);
+  color: var(--fg-secondary);
+}
+.confirm-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  line-height: 1.45;
+}
+.confirm-points li > span {
+  font-weight: 600;
+}
+.confirm-points li > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--fg-tertiary);
+}
+.confirm-points li:first-child > svg {
+  color: var(--danger);
+}
+.confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-2);
+  width: 100%;
+  margin-top: var(--s-5);
+}
+.confirm-actions .btn {
+  justify-content: center;
+  height: 36px;
+}
+
 /* ===== Slide-over ===== */
 .slideover-backdrop {
   position: fixed;
