@@ -10,7 +10,16 @@ import { useBrand } from './BrandProvider';
 import { useI18n, LANGS } from '@/i18n';
 
 // `label`/`section` are i18n keys resolved with t() at render time.
-const NAV_SECTIONS = [
+type NavItem = {
+  href: string;
+  icon: string;
+  label: string;
+  // Matches nested routes (e.g. /admin/purchases/[id]) as active too, not just an exact href.
+  activeBase?: string;
+};
+type NavSection = { section: string; items: NavItem[] };
+
+const NAV_SECTIONS: NavSection[] = [
   {
     section: 'nav.sectionWorkspace',
     items: [
@@ -31,16 +40,22 @@ const NAV_SECTIONS = [
     section: 'nav.sectionSales',
     items: [
       { href: '/admin/pos', icon: 'pos', label: 'nav.pos' },
+      { href: '/admin/orders', icon: 'cart', label: 'nav.orders' },
       { href: '/admin/invoices', icon: 'receipt2', label: 'nav.invoices' },
       { href: '/admin/customers', icon: 'users', label: 'nav.customers' },
       { href: '/admin/returns', icon: 'refund', label: 'nav.returns' },
     ],
   },
   {
+    section: 'nav.sectionPurchases',
+    items: [
+      { href: '/admin/purchases/new', icon: 'package', label: 'nav.purchases', activeBase: '/admin/purchases' },
+      { href: '/admin/suppliers', icon: 'truck', label: 'nav.suppliers' },
+    ],
+  },
+  {
     section: 'nav.sectionOperations',
     items: [
-      { href: '/admin/orders', icon: 'cart', label: 'nav.orders' },
-      { href: '/admin/suppliers', icon: 'truck', label: 'nav.suppliers' },
       { href: '/admin/reports', icon: 'file', label: 'nav.reports' },
       { href: '/admin/barcode', icon: 'barcode', label: 'nav.barcode' },
     ],
@@ -66,7 +81,9 @@ function Sidebar({ pathname, mobileOpen, onClose, brand, t }: any) {
           <div className="nav-section" key={section.section}>
             <div className="nav-section-label">{t(section.section)}</div>
             {section.items.map((item) => {
-              const active = pathname === item.href;
+              const active =
+                pathname === item.href ||
+                (!!item.activeBase && pathname.startsWith(item.activeBase));
               const label = t(item.label);
               return (
                 <Link
