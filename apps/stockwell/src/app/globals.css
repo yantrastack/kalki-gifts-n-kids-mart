@@ -789,6 +789,27 @@ table.dt.dt-report tbody td.col-center {
   width: 36px;
   text-align: center;
 }
+/* Opt-in for tables with a small, fixed set of columns whose widths should come
+   from a <colgroup>, not from content (the default `auto` layout lets the widest
+   cell — usually a name column — steal space and push other columns into a tight
+   cluster with a big gap before them). Unlike .dt-report, this does NOT truncate
+   with ellipsis: text columns (e.g. product names) still wrap normally. */
+table.dt.dt-fixed {
+  table-layout: fixed;
+}
+table.dt.dt-fixed thead th,
+table.dt.dt-fixed tbody td {
+  overflow-wrap: break-word;
+}
+/* Centre a numeric column's heading and values on the same line, instead of a
+   left-aligned heading over a right-aligned value (the app-wide .col-num
+   convention, kept elsewhere for money/report columns). Scoped to .dt-fixed so
+   it doesn't change that convention on other tables. */
+table.dt.dt-fixed thead th.col-center,
+table.dt.dt-fixed tbody td.col-center {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ===== Inputs ===== */
 .input,
