@@ -32,7 +32,6 @@ export default function ProductsPage() {
   const [stockFilter, setStockFilter] = useState('all');
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
   const [view, setView] = useState('table');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openProduct, setOpenProduct] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
@@ -89,25 +88,6 @@ export default function ProductsPage() {
     setPage(1);
   }, [query, category, brand, stockFilter]);
 
-  const toggleSelect = (id: string) =>
-    setSelected((s) => {
-      const n = new Set(s);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
-    });
-  const toggleAll = () => {
-    const ids = pageItems.map((p) => p.id);
-    const all = ids.every((id) => selected.has(id));
-    setSelected((s) => {
-      const n = new Set(s);
-      for (const id of ids) {
-        if (all) n.delete(id);
-        else n.add(id);
-      }
-      return n;
-    });
-  };
-
   const handleDelete = async (id: string) => {
     try {
       await jsend(`/api/products/${id}`, 'DELETE');
@@ -133,8 +113,7 @@ export default function ProductsPage() {
     const isActive = sort.key === k;
     return (
       <th
-        className="sortable col-num"
-        style={{ textAlign: align || 'left' }}
+        className={align === 'right' ? 'sortable col-num' : 'sortable'}
         onClick={() =>
           setSort((s) => ({ key: k, dir: s.key === k && s.dir === 'asc' ? 'desc' : 'asc' }))
         }
@@ -216,11 +195,6 @@ export default function ProductsPage() {
             ]}
           />
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-            {selected.size > 0 && (
-              <span style={{ fontSize: 'var(--t-sm)', fontWeight: 500 }}>
-                {selected.size} selected
-              </span>
-            )}
             <div
               style={{
                 display: 'flex',
@@ -259,17 +233,22 @@ export default function ProductsPage() {
           <div className="page-loading">Loading products…</div>
         ) : view === 'table' ? (
           <div className="table-scroll">
-            <table className="dt">
+            {/* dt-fixed: widths come from the colgroup, not cell content. Every column but
+                Product is content-sized in px (percentages would inflate them all on wide
+                screens); Product has no width so it alone absorbs the leftover space. */}
+            <table className="dt dt-fixed" style={{ minWidth: 1040 }}>
+              <colgroup>
+                <col />
+                <col style={{ width: 130 }} />
+                <col style={{ width: 130 }} />
+                <col style={{ width: 130 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 150 }} />
+                <col style={{ width: 56 }} />
+              </colgroup>
               <thead>
                 <tr>
-                  <th className="col-check">
-                    <input
-                      type="checkbox"
-                      className="checkbox"
-                      checked={pageItems.length > 0 && pageItems.every((p) => selected.has(p.id))}
-                      onChange={toggleAll}
-                    />
-                  </th>
                   <SortHeader k="name">Product</SortHeader>
                   <SortHeader k="sku">SKU</SortHeader>
                   <SortHeader k="category">Category</SortHeader>
@@ -280,31 +259,13 @@ export default function ProductsPage() {
                   <SortHeader k="price" align="right">
                     Price
                   </SortHeader>
-                  <th>Status</th>
-                  <th style={{ width: 36 }}></th>
+                  <th className="col-gutter">Status</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {pageItems.map((p) => (
-                  <tr
-                    key={p.id}
-                    className={selected.has(p.id) ? 'selected' : ''}
-                    onClick={() => setOpenProduct(p)}
-                  >
-                    <td
-                      className="col-check"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSelect(p.id);
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        className="checkbox"
-                        checked={selected.has(p.id)}
-                        readOnly
-                      />
-                    </td>
+                  <tr key={p.id} onClick={() => setOpenProduct(p)}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <ProductThumb name={p.name} />
@@ -350,7 +311,7 @@ export default function ProductsPage() {
                       </span>
                     </td>
                     <td className="col-num mono">{fmt.money(p.price)}</td>
-                    <td>{statusBadge(p.status)}</td>
+                    <td className="col-gutter">{statusBadge(p.status)}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <Dropdown
                         trigger={
@@ -375,7 +336,7 @@ export default function ProductsPage() {
                 ))}
                 {pageItems.length === 0 && (
                   <tr>
-                    <td colSpan={9}>
+                    <td colSpan={8}>
                       <EmptyState
                         icon="search"
                         title="No products match"
@@ -1074,4 +1035,3 @@ function GiftingTab({ product: p, onSaved }: any) {
     </div>
   );
 }
-
