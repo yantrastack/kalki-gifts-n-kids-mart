@@ -131,20 +131,15 @@ export default function AddProductModal({ open, onClose, onSubmit, defaults }: a
             onChange={(e) => set('stock', e.target.value)}
           />
         </label>
-        <label className="field">
+        <div className="field">
           <span>Warehouse</span>
-          <select
-            className="select"
+          <UI.Select
+            aria-label="Warehouse"
             value={form.warehouse}
-            onChange={(e) => set('warehouse', e.target.value)}
-          >
-            {warehouses.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={(v) => set('warehouse', v)}
+            options={warehouses.map((w) => ({ value: w.id, label: w.name }))}
+          />
+        </div>
         <label className="field">
           <span>HSN Code</span>
           <input
@@ -154,20 +149,21 @@ export default function AddProductModal({ open, onClose, onSubmit, defaults }: a
             placeholder="e.g. 8518"
           />
         </label>
-        <label className="field">
+        <div className="field">
           <span>GST Rate (%)</span>
-          <select
-            className="select"
+          <UI.Select
+            aria-label="GST Rate"
             value={form.gstRate}
-            onChange={(e) => set('gstRate', e.target.value)}
-          >
-            <option value="0">0% (Nil Rated / Exempt)</option>
-            <option value="5">5%</option>
-            <option value="12">12%</option>
-            <option value="18">18%</option>
-            <option value="28">28%</option>
-          </select>
-        </label>
+            onChange={(v) => set('gstRate', v)}
+            options={[
+              { value: '0', label: '0% (Nil Rated / Exempt)' },
+              { value: '5', label: '5%' },
+              { value: '12', label: '12%' },
+              { value: '18', label: '18%' },
+              { value: '28', label: '28%' },
+            ]}
+          />
+        </div>
         <label className="field" style={{ gridColumn: '1 / -1' }}>
           <span>Supplier</span>
           <input
