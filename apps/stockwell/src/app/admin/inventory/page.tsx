@@ -206,18 +206,33 @@ export default function InventoryPage() {
             />
           </div>
           <div className="table-scroll">
-            <table className="dt">
+            <table className="dt dt-fixed">
+              <colgroup>
+                <col style={{ width: '22%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '9%' }} />
+              </colgroup>
               <thead>
                 <tr>
-                  <th>Product</th>
-                  <th>SKU</th>
+                  <th style={{ textAlign: 'center', paddingRight: 'calc(var(--pad-cell-x) + 12px)' }}>
+                    Product
+                  </th>
+                  <th style={{ textAlign: 'center', paddingRight: 'calc(var(--pad-cell-x) + 24px)' }}>
+                    SKU
+                  </th>
                   <th>Warehouse</th>
-                  <th className="col-num">On hand</th>
-                  <th className="col-num">Reserved</th>
-                  <th className="col-num">Incoming</th>
-                  <th className="col-num">Available</th>
-                  <th className="col-num">Damaged</th>
-                  <th>Status</th>
+                  <th className="col-center">On hand</th>
+                  <th className="col-center">Reserved</th>
+                  <th className="col-center">Incoming</th>
+                  <th className="col-center">Available</th>
+                  <th className="col-center">Damaged</th>
+                  <th style={{ paddingLeft: 'calc(var(--pad-cell-x) + 6px)' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,7 +249,7 @@ export default function InventoryPage() {
                     </td>
                     <td className="mono">{p.warehouse}</td>
                     <td
-                      className="col-num"
+                      className="col-center"
                       style={{
                         fontWeight: 600,
                         color:
@@ -247,16 +262,16 @@ export default function InventoryPage() {
                     >
                       {fmt.int(p.stock)}
                     </td>
-                    <td className="col-num muted">{fmt.int(p.reserved)}</td>
+                    <td className="col-center muted">{fmt.int(p.reserved)}</td>
                     <td
-                      className="col-num"
+                      className="col-center"
                       style={{ color: p.incoming > 0 ? 'var(--info)' : 'var(--fg-tertiary)' }}
                     >
                       {p.incoming > 0 ? `+${fmt.int(p.incoming)}` : '—'}
                     </td>
-                    <td className="col-num mono">{fmt.int(Math.max(0, p.stock - p.reserved))}</td>
+                    <td className="col-center">{fmt.int(Math.max(0, p.stock - p.reserved))}</td>
                     <td
-                      className="col-num"
+                      className="col-center"
                       style={{ color: p.damaged > 0 ? 'var(--warn)' : 'var(--fg-tertiary)' }}
                     >
                       {p.damaged || '—'}
