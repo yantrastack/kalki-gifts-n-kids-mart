@@ -761,6 +761,18 @@ table.dt tbody td.col-status {
   padding-left: calc(var(--pad-cell-x) * 2);
   padding-right: calc(var(--pad-cell-x) * 2);
 }
+/* Extra left gutter for a text column that follows another text column, so its gap
+   matches the gaps either side of the centred .col-status column. */
+table.dt thead th.col-gutter,
+table.dt tbody td.col-gutter {
+  padding-left: calc(var(--pad-cell-x) * 2);
+}
+/* Centre the Items heading and values within their column. Alignment only, so the
+   header background stays continuous (a transform would leave a white gap). */
+table.dt thead th.col-items,
+table.dt tbody td.col-items {
+  text-align: center;
+}
 /* Opt-in: centre every column so each value sits directly under its heading.
    Declared after th.col-num so it wins the equal-specificity tie. */
 table.dt.dt-center thead th,

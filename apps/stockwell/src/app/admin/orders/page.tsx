@@ -350,11 +350,11 @@ export default function OrdersPage() {
                 <tr>
                   <th>PO</th>
                   <th>Supplier</th>
-                  <th className="col-num">Items</th>
+                  <th className="col-num col-items">Items</th>
                   <th className="col-num">Total</th>
                   <th className="col-status">Status</th>
                   <th>ETA</th>
-                  <th>Created</th>
+                  <th className="col-gutter">Created</th>
                 </tr>
               </thead>
               <tbody>
@@ -364,11 +364,11 @@ export default function OrdersPage() {
                       {o.id}
                     </td>
                     <td>{o.supplier}</td>
-                    <td className="col-num">{o.items}</td>
+                    <td className="col-num col-items">{o.items}</td>
                     <td className="col-num mono">{fmt.money(o.total)}</td>
                     <td className="col-status">{statusBadge(o.status)}</td>
                     <td className="muted">{o.eta}</td>
-                    <td className="muted">{o.created}</td>
+                    <td className="col-gutter muted">{o.created}</td>
                   </tr>
                 ))}
               </tbody>
