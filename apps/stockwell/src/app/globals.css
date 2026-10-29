@@ -752,6 +752,15 @@ table.dt thead th.col-num {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+/* Status column on the Orders tables: centred between its neighbours (right-aligned
+   Total before it, left-aligned column after it) with the same extra padding on both
+   sides, so the gap to the left and the gap to the right come out equal. */
+table.dt thead th.col-status,
+table.dt tbody td.col-status {
+  text-align: center;
+  padding-left: calc(var(--pad-cell-x) * 2);
+  padding-right: calc(var(--pad-cell-x) * 2);
+}
 /* Opt-in: centre every column so each value sits directly under its heading.
    Declared after th.col-num so it wins the equal-specificity tie. */
 table.dt.dt-center thead th,

@@ -318,7 +318,7 @@ export default function OrdersPage() {
                   <th>Customer</th>
                   <th className="col-num">Items</th>
                   <th className="col-num">Total</th>
-                  <th>Status</th>
+                  <th className="col-status">Status</th>
                   <th>Payment</th>
                   <th>Date</th>
                 </tr>
@@ -332,7 +332,7 @@ export default function OrdersPage() {
                     <td>{o.customer}</td>
                     <td className="col-num">{o.items}</td>
                     <td className="col-num mono">{fmt.money(o.total)}</td>
-                    <td>{statusBadge(o.status)}</td>
+                    <td className="col-status">{statusBadge(o.status)}</td>
                     <td>{statusBadge(o.payment)}</td>
                     <td className="muted">{o.date}</td>
                   </tr>
@@ -352,7 +352,7 @@ export default function OrdersPage() {
                   <th>Supplier</th>
                   <th className="col-num">Items</th>
                   <th className="col-num">Total</th>
-                  <th>Status</th>
+                  <th className="col-status">Status</th>
                   <th>ETA</th>
                   <th>Created</th>
                 </tr>
@@ -366,7 +366,7 @@ export default function OrdersPage() {
                     <td>{o.supplier}</td>
                     <td className="col-num">{o.items}</td>
                     <td className="col-num mono">{fmt.money(o.total)}</td>
-                    <td>{statusBadge(o.status)}</td>
+                    <td className="col-status">{statusBadge(o.status)}</td>
                     <td className="muted">{o.eta}</td>
                     <td className="muted">{o.created}</td>
                   </tr>
