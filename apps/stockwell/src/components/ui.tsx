@@ -1,6 +1,15 @@
 'use client';
 import type React from 'react';
-import { useState, useEffect, useRef, useCallback, useId, createContext, useContext } from 'react';
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  useId,
+  createContext,
+  useContext,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 
@@ -410,40 +419,88 @@ export function Slideover({ open, onClose, children, wide }: any) {
 
 export function Dropdown({ trigger, children, align = 'right' }: any) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; up: boolean } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // The menu is portaled to <body> and fixed-positioned (as Select's list is) so it
+  // can't inflate a table's scroll area or be clipped by `overflow: hidden` ancestors.
+  // Place it once it has mounted and can be measured — before paint, so it never flashes.
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const t = ref.current?.getBoundingClientRect();
+    const m = menuRef.current;
+    if (!t || !m) return;
+    const margin = 8;
+    const w = m.offsetWidth;
+    const h = m.offsetHeight;
+    // Align to the trigger's edge, then keep the whole menu inside the viewport.
+    const left = Math.max(
+      margin,
+      Math.min(align === 'right' ? t.right - w : t.left, window.innerWidth - w - margin),
+    );
+    // Open below unless it won't fit there and there is more room above.
+    const room = window.innerHeight - t.bottom - margin;
+    const up = h + 4 > room && t.top - margin > room;
+    const top = up ? Math.max(margin, t.top - 4 - h) : t.bottom + 4;
+    setPos({ top, left, up });
+  }, [open, align]);
+
+  // Close on outside press, page scroll or resize (the menu is fixed-positioned).
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    if (!open) return;
+    const inside = (t: EventTarget | null) =>
+      t instanceof Node && (ref.current?.contains(t) || menuRef.current?.contains(t));
+    const onDown = (e: MouseEvent) => {
+      if (!inside(e.target)) setOpen(false);
     };
-    if (open) window.addEventListener('mousedown', onClick);
-    return () => window.removeEventListener('mousedown', onClick);
+    const onScroll = (e: Event) => {
+      if (!inside(e.target)) setOpen(false);
+    };
+    const onResize = () => setOpen(false);
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
   }, [open]);
+
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <div onClick={() => setOpen((o) => !o)}>{trigger}</div>
-      {open && (
-        <div
-          style={
-            {
-              position: 'absolute',
-              top: 'calc(100% + 4px)',
-              [align]: 0,
-              minWidth: 180,
-              background: 'var(--bg-elev)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--r-md)',
-              boxShadow: 'var(--shadow-lg)',
-              padding: 4,
-              zIndex: 50,
-              animation: 'scale-in 120ms cubic-bezier(0.2,0.8,0.2,1)',
-              transformOrigin: align === 'right' ? 'top right' : 'top left',
-            } as React.CSSProperties
-          }
-          onClick={() => setOpen(false)}
-        >
-          {children}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={
+              {
+                position: 'fixed',
+                top: pos?.top ?? 0,
+                left: pos?.left ?? 0,
+                visibility: pos ? 'visible' : 'hidden',
+                minWidth: 180,
+                background: 'var(--bg-elev)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--r-md)',
+                boxShadow: 'var(--shadow-lg)',
+                padding: 4,
+                zIndex: 110, // above modals (100), like Select's list
+                animation: 'scale-in 120ms cubic-bezier(0.2,0.8,0.2,1)',
+                transformOrigin: `${pos?.up ? 'bottom' : 'top'} ${align === 'right' ? 'right' : 'left'}`,
+              } as React.CSSProperties
+            }
+            onClick={() => setOpen(false)}
+          >
+            {children}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
