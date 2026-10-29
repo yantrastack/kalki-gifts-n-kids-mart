@@ -122,7 +122,9 @@ export const purchaseOrderItems = sqliteTable('purchase_order_items', {
   poId: text('po_id')
     .notNull()
     .references(() => purchaseOrders.id, { onDelete: 'cascade' }),
-  productId: text('product_id').references(() => products.id),
+  // Nullable on purpose: deleting a product keeps the line (name, sku, cost, ...) and
+  // only drops the link.
+  productId: text('product_id').references(() => products.id, { onDelete: 'set null' }),
   product: text('product'),
   sku: text('sku'),
   qty: integer('qty').notNull().default(0),
@@ -152,7 +154,9 @@ export const salesOrders = sqliteTable('sales_orders', {
 export const stockMoves = sqliteTable('stock_moves', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   type: text('type').notNull(),
-  productId: text('product_id').references(() => products.id),
+  // `product` holds the name at the time, so the move stays readable once the product
+  // is deleted (the link is set to null).
+  productId: text('product_id').references(() => products.id, { onDelete: 'set null' }),
   product: text('product'),
   qty: integer('qty').notNull(),
   who: text('who').default('System'),
@@ -223,13 +227,13 @@ export const invoices = sqliteTable(
 
 // Snapshot of each line at the time of sale: later product edits never change
 // a historical invoice. productId is kept for traceability, not as the source
-// of the name, SKU, price or GST.
+// of the name, SKU, price or GST. Deleting a product sets the link to null; the line stays.
 export const invoiceItems = sqliteTable('invoice_items', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   invoiceId: text('invoice_id')
     .notNull()
     .references(() => invoices.id, { onDelete: 'cascade' }),
-  productId: text('product_id').references(() => products.id),
+  productId: text('product_id').references(() => products.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
   sku: text('sku').notNull(),
   hsnCode: text('hsn_code'),

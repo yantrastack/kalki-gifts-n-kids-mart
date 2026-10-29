@@ -94,27 +94,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [stockMove, poItem] = await Promise.all([
-    db
-      .select({ id: schema.stockMoves.id })
-      .from(schema.stockMoves)
-      .where(eq(schema.stockMoves.productId, id))
-      .get(),
-    db
-      .select({ id: schema.purchaseOrderItems.id })
-      .from(schema.purchaseOrderItems)
-      .where(eq(schema.purchaseOrderItems.productId, id))
-      .get(),
-  ]);
-  if (stockMove || poItem) {
-    return NextResponse.json(
-      {
-        error:
-          'This product has history (stock moves or purchase orders) and cannot be deleted. Discontinue it instead.',
-      },
-      { status: 409 },
-    );
+  const existing = await db
+    .select({ id: schema.products.id })
+    .from(schema.products)
+    .where(eq(schema.products.id, id))
+    .get();
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  // A hard delete. Stock moves, purchase-order lines and invoice lines keep their own
+  // copy of the name/SKU/price and have their product link set to null (ON DELETE SET
+  // NULL), so history stays readable; media and engagement events cascade.
+  try {
+    await db.delete(schema.products).where(eq(schema.products.id, id));
+  } catch (e) {
+    console.error(`DELETE /api/products/${id} failed`, e);
+    return NextResponse.json({ error: 'Could not delete the product' }, { status: 500 });
   }
-  await db.delete(schema.products).where(eq(schema.products.id, id));
   return NextResponse.json({ ok: true });
 }

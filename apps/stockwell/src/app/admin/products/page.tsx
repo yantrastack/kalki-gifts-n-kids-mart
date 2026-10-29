@@ -13,6 +13,7 @@ export default function ProductsPage() {
   const {
     fmt,
     ProductThumb,
+    Modal,
     Slideover,
     statusBadge,
     Dropdown,
@@ -37,6 +38,8 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [removing, setRemoving] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const pageSize = 10;
 
   const load = () => {
@@ -108,14 +111,26 @@ export default function ProductsPage() {
     });
   };
 
-  const handleDelete = async (id: string) => {
+  // Both Delete entry points (row menu, detail panel) only set `removing`; the request
+  // is sent from the confirmation dialog.
+  const confirmDelete = async () => {
+    if (!removing || deleting) return;
+    setDeleting(true);
     try {
-      await jsend(`/api/products/${id}`, 'DELETE');
+      await jsend(`/api/products/${removing.id}`, 'DELETE');
       setOpenProduct(null);
-      toast({ message: 'Product deleted', icon: 'trash', type: 'danger' });
+      toast({
+        message: t('productDelete.deleted', { name: removing.name }),
+        icon: 'trash',
+        type: 'danger',
+      });
       load();
     } catch (e: any) {
-      toast({ message: e.message || 'Delete failed', icon: 'alert', type: 'danger' });
+      // The API explains why (e.g. 409: the product has stock or purchase history).
+      toast({ message: e.message || t('productDelete.failed'), icon: 'alert', type: 'danger' });
+    } finally {
+      setDeleting(false);
+      setRemoving(null);
     }
   };
   const handleAdd = async (form: any) => {
@@ -366,7 +381,7 @@ export default function ProductsPage() {
                             icon="trash"
                             label="Delete"
                             danger
-                            onClick={() => handleDelete(p.id)}
+                            onClick={() => setRemoving(p)}
                           />
                         )}
                       </Dropdown>
@@ -496,12 +511,65 @@ export default function ProductsPage() {
           <ProductDetail
             product={openProduct}
             onClose={() => setOpenProduct(null)}
-            onDelete={handleDelete}
+            onDelete={setRemoving}
+            deleting={deleting}
             onSaved={load}
             isAdmin={isAdmin}
           />
         )}
       </Slideover>
+
+      <Modal open={!!removing} onClose={() => !deleting && setRemoving(null)} small>
+        <div className="confirm" role="alertdialog" aria-labelledby="confirm-title">
+          <button
+            type="button"
+            className="icon-btn confirm-close"
+            aria-label={t('productDelete.cancel')}
+            onClick={() => setRemoving(null)}
+            disabled={deleting}
+          >
+            <Icon name="x" size={16} />
+          </button>
+          <div className="confirm-icon">
+            <Icon name="trash" size={22} />
+          </div>
+          <div id="confirm-title" className="confirm-title">
+            {t('productDelete.title')}
+          </div>
+          <div className="confirm-name" title={removing?.name}>
+            {removing?.name}
+          </div>
+          <ul className="confirm-points">
+            <li>
+              <Icon name="alert" size={16} />
+              <span>{t('productDelete.permanent')}</span>
+            </li>
+            <li>
+              <Icon name="archive" size={16} />
+              <span>{t('productDelete.historyKept')}</span>
+            </li>
+          </ul>
+          <div className="confirm-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setRemoving(null)}
+              disabled={deleting}
+            >
+              {t('productDelete.cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              <Icon name="trash" size={14} />{' '}
+              {t(deleting ? 'productDelete.deleting' : 'productDelete.confirm')}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <AddProductModal open={addOpen} onClose={() => setAddOpen(false)} onSubmit={handleAdd} />
       <ImportProductsModal
@@ -532,7 +600,7 @@ function StockStat({ label, value, color }: any) {
   );
 }
 
-function ProductDetail({ product: p, onClose, onDelete, onSaved, isAdmin }: any) {
+function ProductDetail({ product: p, onClose, onDelete, deleting, onSaved, isAdmin }: any) {
   const { fmt, statusBadge, useToast } = UI;
   const toast = useToast();
   const [tab, setTab] = useState('overview');
@@ -787,7 +855,8 @@ function ProductDetail({ product: p, onClose, onDelete, onSaved, isAdmin }: any)
           <button
             className="btn btn-secondary btn-sm"
             style={{ color: 'var(--danger)' }}
-            onClick={() => onDelete(p.id)}
+            disabled={deleting}
+            onClick={() => onDelete(p)}
           >
             <Icon name="trash" size={12} /> Delete
           </button>
