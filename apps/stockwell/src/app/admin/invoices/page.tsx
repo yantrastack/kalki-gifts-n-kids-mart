@@ -196,19 +196,20 @@ export default function InvoicesPage() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <select
-            className="select"
+          <UI.Select
+            aria-label="Status"
             style={{ width: 150 }}
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">All statuses</option>
-            <option value="paid">{t('payments.status.paid')}</option>
-            <option value="partial">{t('payments.status.partial')}</option>
-            <option value="unpaid">{t('payments.status.unpaid')}</option>
-            <option value="overdue">{t('payments.status.overdue')}</option>
-            <option value="void">{t('payments.status.void')}</option>
-          </select>
+            onChange={setFilter}
+            options={[
+              { value: 'all', label: 'All statuses' },
+              { value: 'paid', label: t('payments.status.paid') },
+              { value: 'partial', label: t('payments.status.partial') },
+              { value: 'unpaid', label: t('payments.status.unpaid') },
+              { value: 'overdue', label: t('payments.status.overdue') },
+              { value: 'void', label: t('payments.status.void') },
+            ]}
+          />
         </div>
         <div className="table-scroll">
           <table className="dt dt-center">

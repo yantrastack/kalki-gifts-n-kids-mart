@@ -2037,13 +2037,15 @@ a.nav-item {
   margin-bottom: 6px;
 }
 .pos-disc {
+  display: inline-block;
+  vertical-align: middle;
+  width: 76px;
   margin-left: 6px;
-  background: var(--bg-muted);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
+}
+.pos-disc .select {
+  height: 24px;
+  padding: 1px 8px;
   font-size: var(--t-xs);
-  padding: 1px 2px;
-  color: var(--fg);
 }
 .pos-pay {
   display: flex;

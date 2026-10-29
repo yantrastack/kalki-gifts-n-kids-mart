@@ -186,41 +186,35 @@ export default function ProductsPage() {
               />
             )}
           </div>
-          <select
-            className="select"
+          <UI.Select
+            aria-label="Category"
             style={{ width: 140 }}
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c === 'all' ? 'All categories' : c}
-              </option>
-            ))}
-          </select>
-          <select
-            className="select"
+            onChange={setCategory}
+            options={categories.map((c) => ({
+              value: c,
+              label: c === 'all' ? 'All categories' : c,
+            }))}
+          />
+          <UI.Select
+            aria-label="Brand"
             style={{ width: 140 }}
             value={brand}
-            onChange={(e) => setBrand(e.target.value)}
-          >
-            {brands.map((b) => (
-              <option key={b} value={b}>
-                {b === 'all' ? 'All brands' : b}
-              </option>
-            ))}
-          </select>
-          <select
-            className="select"
+            onChange={setBrand}
+            options={brands.map((b) => ({ value: b, label: b === 'all' ? 'All brands' : b }))}
+          />
+          <UI.Select
+            aria-label="Stock status"
             style={{ width: 150 }}
             value={stockFilter}
-            onChange={(e) => setStockFilter(e.target.value)}
-          >
-            <option value="all">All stock states</option>
-            <option value="active">In stock</option>
-            <option value="low">Low stock</option>
-            <option value="out">Out of stock</option>
-          </select>
+            onChange={setStockFilter}
+            options={[
+              { value: 'all', label: 'All stock states' },
+              { value: 'active', label: 'In stock' },
+              { value: 'low', label: 'Low stock' },
+              { value: 'out', label: 'Out of stock' },
+            ]}
+          />
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
             {selected.size > 0 && (
               <span style={{ fontSize: 'var(--t-sm)', fontWeight: 500 }}>

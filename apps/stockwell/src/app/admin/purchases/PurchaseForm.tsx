@@ -285,21 +285,18 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
                 gap: 14,
               }}
             >
-              <label className="field">
+              <div className="field">
                 <span>Supplier *</span>
-                <select
-                  className="select"
+                <UI.Select
+                  aria-label="Supplier"
                   value={supplier}
-                  onChange={(e) => setSupplier(e.target.value)}
-                >
-                  <option value="">Select supplier…</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.name}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  onChange={setSupplier}
+                  options={[
+                    { value: '', label: 'Select supplier…' },
+                    ...suppliers.map((s) => ({ value: s.name, label: s.name })),
+                  ]}
+                />
+              </div>
               <label className="field">
                 <span>Invoice no.</span>
                 <input
@@ -327,20 +324,15 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
                   onChange={(e) => setEnteredDate(e.target.value)}
                 />
               </label>
-              <label className="field">
+              <div className="field">
                 <span>Deliver to</span>
-                <select
-                  className="select"
+                <UI.Select
+                  aria-label="Deliver to"
                   value={warehouse}
-                  onChange={(e) => setWarehouse(e.target.value)}
-                >
-                  {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  onChange={setWarehouse}
+                  options={warehouses.map((w) => ({ value: w.id, label: w.name }))}
+                />
+              </div>
             </div>
           </div>
 

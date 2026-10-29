@@ -298,21 +298,18 @@ export default function POSPage() {
           )}
         </div>
         <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
-          <label className="field">
+          <div className="field">
             <span>Customer</span>
-            <select
-              className="select"
+            <UI.Select
+              aria-label="Customer"
               value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
-            >
-              <option value="">{t('payments.walkIn')}</option>
-              {registered.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={setCustomerId}
+              options={[
+                { value: '', label: t('payments.walkIn') },
+                ...registered.map((c) => ({ value: c.id, label: c.name })),
+              ]}
+            />
+          </div>
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '8px 16px' }}>
           {cart.length === 0 ? (
@@ -368,17 +365,13 @@ export default function POSPage() {
           <div className="spread">
             <span className="muted">
               Discount
-              <select
-                value={discount}
-                onChange={(e) => setDiscount(Number(e.target.value))}
+              <UI.Select
+                aria-label="Discount"
                 className="pos-disc"
-              >
-                {[0, 5, 10, 15, 20].map((d) => (
-                  <option key={d} value={d}>
-                    {d}%
-                  </option>
-                ))}
-              </select>
+                value={String(discount)}
+                onChange={(v) => setDiscount(Number(v))}
+                options={[0, 5, 10, 15, 20].map((d) => ({ value: String(d), label: `${d}%` }))}
+              />
             </span>
             <span className="mono" style={{ color: discountAmount ? 'var(--success)' : 'inherit' }}>
               −{fmt.money(discountAmount)}
