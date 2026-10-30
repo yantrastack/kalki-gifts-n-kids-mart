@@ -42,6 +42,7 @@ export const te: Dict = {
     callShop: 'దుకాణానికి కాల్ చేయండి',
     whatsapp: 'వాట్సాప్',
     addToCart: 'కార్ట్‌కు జోడించండి',
+    imageUnavailable: 'చిత్రం అందుబాటులో లేదు',
     prevImage: 'మునుపటి చిత్రం',
     nextImage: 'తదుపరి చిత్రం',
     goToImage: 'చిత్రం {n}కి వెళ్లండి',

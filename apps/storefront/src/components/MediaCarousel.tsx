@@ -17,6 +17,44 @@ import { mediaUrl } from '../api';
 import type { ShopMedia } from '@stockwell/shared';
 
 /** Gallery of a product's photos and videos: swipe, arrows (web), tappable dots, counter. */
+function CarouselImage({
+  uri,
+  width,
+  theme,
+  label,
+}: {
+  uri: string;
+  width: number;
+  theme: Theme;
+  label: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed)
+    return (
+      <View
+        style={{
+          width,
+          height: width,
+          backgroundColor: theme.muted,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Feather name="image" size={28} color={theme.faint} />
+        <Text style={{ color: theme.sub, marginTop: 6 }}>{label}</Text>
+      </View>
+    );
+  return (
+    <Image
+      source={{ uri }}
+      style={{ width, height: width, backgroundColor: theme.muted }}
+      contentFit="cover"
+      transition={250}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export default function MediaCarousel({
   media,
   productName,
@@ -65,11 +103,11 @@ export default function MediaCarousel({
           item.type === 'video' ? (
             <VideoPlayer uri={mediaUrl(item.url)} width={width} height={width} theme={theme} />
           ) : (
-            <Image
-              source={{ uri: mediaUrl(item.url) }}
-              style={{ width, height: width, backgroundColor: theme.muted }}
-              contentFit="cover"
-              transition={250}
+            <CarouselImage
+              uri={mediaUrl(item.url)}
+              width={width}
+              theme={theme}
+              label={t('product.imageUnavailable')}
             />
           )
         }

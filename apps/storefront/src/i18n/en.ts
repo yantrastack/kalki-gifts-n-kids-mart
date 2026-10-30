@@ -45,6 +45,7 @@ export const en = {
     callShop: 'Call shop',
     whatsapp: 'WhatsApp',
     addToCart: 'Add to cart',
+    imageUnavailable: 'Image unavailable',
     prevImage: 'Previous image',
     nextImage: 'Next image',
     goToImage: 'Go to image {n}',

@@ -77,6 +77,27 @@ Demo logins (password `stockwell123`): `admin@stockwell.app` (admin),
    rules are intentionally off; `useExhaustiveDependencies` is advisory (warn) —
    don't blindly auto-fix it (it can introduce refetch loops on the `load()`
    effects).
+6. **SEO-friendly code, always.** Read this before changing any file. Whatever
+   code you touch, leave it SEO-friendly:
+   - **Semantic HTML** — real `<main>`, `<nav>`, `<header>`, `<section>`, `<h1>`–`<h6>`
+     in order (one `<h1>` per page), `<button>` for actions, `<a href>` for links;
+     no clickable `<div>`s.
+   - **Images** — meaningful `alt` text (translated, via i18n), explicit
+     `width`/`height` or aspect ratio, lazy-load below the fold. Decorative images
+     get `alt=""`.
+   - **Metadata** — public pages set a unique `<title>`, meta description, canonical
+     URL and Open Graph/Twitter tags (Next `metadata` / `generateMetadata`; Expo
+     web via `expo-router`/`Head`). Product pages add `schema.org/Product` JSON-LD.
+   - **Crawlability** — descriptive link text, clean readable URLs, keep
+     `robots.txt` / `sitemap.xml` correct, no content that only exists after a
+     click.
+   - **Performance** — Core Web Vitals matter: avoid layout shift, oversized images
+     and blocking scripts.
+   - **Admin is the exception:** `/admin/*` and `/api/*` sit behind login and must
+     stay **`noindex`** (never listed in the sitemap); apply the semantic/a11y
+     points there, but not the ranking-oriented metadata.
+   - Don't hurt SEO elsewhere: never remove existing meta, alt text, headings or
+     structured data while editing.
 
 ## Features & where they live
 
