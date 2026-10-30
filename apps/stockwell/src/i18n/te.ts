@@ -242,6 +242,11 @@ export const te: Dict = {
     pagination: 'కస్టమర్ జాబితా పేజీలు',
   },
 
+  media: {
+    unavailable: 'చిత్రం అందుబాటులో లేదు',
+    videoUnavailable: 'వీడియో అందుబాటులో లేదు',
+  },
+
   engagement: {
     showing: '{total} లో {from}–{to} చూపిస్తోంది',
     prev: 'మునుపటి',

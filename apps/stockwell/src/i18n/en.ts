@@ -256,6 +256,12 @@ export const en = {
     pagination: 'Top products pages',
   },
 
+  // Product media tiles (Media tab).
+  media: {
+    unavailable: 'Image unavailable',
+    videoUnavailable: 'Video unavailable',
+  },
+
   // Payments, invoices and refunds (POS, Invoices and Returns pages).
   payments: {
     methods: {

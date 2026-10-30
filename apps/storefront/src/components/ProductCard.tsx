@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
@@ -19,6 +20,7 @@ export default function ProductCard({
   onAdd: () => void;
 }) {
   const { t } = useI18n();
+  const [coverFailed, setCoverFailed] = useState(false);
   const low = product.inStock <= 10;
   const cover = product.media.find((m) => m.type === 'image') ?? product.media[0];
 
@@ -37,16 +39,17 @@ export default function ProductCard({
           styles.thumb,
           {
             borderRadius: theme.r.md,
-            backgroundColor: cover ? theme.muted : thumbColor(product.name),
+            backgroundColor: cover && !coverFailed ? theme.muted : thumbColor(product.name),
           },
         ]}
       >
-        {cover ? (
+        {cover && !coverFailed ? (
           <Image
             source={{ uri: mediaUrl(cover.url) }}
             style={StyleSheet.absoluteFill}
             contentFit="cover"
             transition={200}
+            onError={() => setCoverFailed(true)}
           />
         ) : (
           <Text style={styles.thumbText}>{initials(product.name)}</Text>

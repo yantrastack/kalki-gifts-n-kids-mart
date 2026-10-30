@@ -768,8 +768,11 @@ function ProductDetail({ product: p, onClose, onDelete, onSaved, isAdmin }: any)
 function MediaTab({ productId, isAdmin }: { productId: string; isAdmin: boolean }) {
   const { useToast } = UI;
   const toast = useToast();
+  const { t } = useI18n();
   const [items, setItems] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<Set<string>>(new Set());
+  const markFailed = (id: string) => setFailed((s) => new Set(s).add(id));
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = () => jget(`/api/products/${productId}/media`).then(setItems);
@@ -845,17 +848,34 @@ function MediaTab({ productId, isAdmin }: { productId: string; isAdmin: boolean 
               aspectRatio: '1',
             }}
           >
-            {m.type === 'video' ? (
+            {failed.has(m.id) ? (
+              <div
+                className="muted tiny"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  padding: 8,
+                }}
+              >
+                {m.type === 'video' ? t('media.videoUnavailable') : t('media.unavailable')}
+              </div>
+            ) : m.type === 'video' ? (
               <video
                 src={m.url}
                 muted
                 playsInline
+                onError={() => markFailed(m.id)}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             ) : (
               <img
                 src={m.url}
                 alt=""
+                onError={() => markFailed(m.id)}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             )}
