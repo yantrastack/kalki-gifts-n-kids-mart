@@ -262,6 +262,19 @@ export const en = {
     videoUnavailable: 'Video unavailable',
   },
 
+  // Delete-product confirmation on the Products page.
+  productDelete: {
+    title: 'Delete product?',
+    permanent: 'Once it is deleted, it can’t be undone.',
+    historyKept:
+      'Past stock movements, purchase orders and invoices are kept, but no longer link to it.',
+    confirm: 'Delete',
+    deleting: 'Deleting…',
+    cancel: 'Cancel',
+    deleted: 'Deleted {name} successfully',
+    failed: 'Could not delete the product. Please try again.',
+  },
+
   // Payments, invoices and refunds (POS, Invoices and Returns pages).
   payments: {
     methods: {
