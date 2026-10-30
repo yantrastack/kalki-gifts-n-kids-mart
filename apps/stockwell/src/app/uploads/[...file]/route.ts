@@ -2,7 +2,7 @@ import { createReadStream } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
 import { Readable } from 'stream';
-import { NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { EXT_TO_MIME, UPLOAD_DIR } from '@/lib/uploads';
 
 export const runtime = 'nodejs';
