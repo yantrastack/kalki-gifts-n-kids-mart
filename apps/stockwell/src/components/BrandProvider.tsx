@@ -1,6 +1,6 @@
 'use client';
 import type React from 'react';
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 
 export type Brand = {
   appName: string;
@@ -21,9 +21,15 @@ const DEFAULT: Brand = {
   currency: '₹',
 };
 
-const BrandContext = createContext<{ brand: Brand; refresh: () => void }>({
+const BrandContext = createContext<{
+  brand: Brand;
+  refresh: () => void;
+  // Live-preview an unsaved accent (Settings). Pass null to go back to the saved one.
+  previewAccent: (accent: string | null) => void;
+}>({
   brand: DEFAULT,
   refresh: () => {},
+  previewAccent: () => {},
 });
 
 // --- color helpers ---
@@ -75,6 +81,10 @@ export function applyAccent(accent: string) {
 
 export function BrandProvider({ children }: { children: React.ReactNode }) {
   const [brand, setBrand] = useState<Brand>(DEFAULT);
+  // Unsaved accent being previewed on the Settings page. It wins over the saved accent
+  // until it is saved or discarded, so a theme flip doesn't drop it.
+  const [preview, setPreview] = useState<string | null>(null);
+  const savedAccent = useRef(DEFAULT.accentColor);
 
   const load = useCallback(() => {
     fetch('/api/brand')
@@ -82,9 +92,16 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
       .then((b: Brand) => {
         setBrand({ ...DEFAULT, ...b });
         document.title = `${b.appName} · Inventory`;
+        savedAccent.current = b.accentColor;
+        setPreview(null); // the saved value is now what's on the server
         applyAccent(b.accentColor);
       })
       .catch(() => {});
+  }, []);
+
+  const previewAccent = useCallback((accent: string | null) => {
+    setPreview(accent);
+    applyAccent(accent || savedAccent.current);
   }, []);
 
   useEffect(() => {
@@ -92,12 +109,17 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
   }, [load]);
 
   // re-apply accent when theme flips (light/dark derive differently)
+  const accent = preview || brand.accentColor;
   useEffect(() => {
-    const obs = new MutationObserver(() => applyAccent(brand.accentColor));
+    const obs = new MutationObserver(() => applyAccent(accent));
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => obs.disconnect();
-  }, [brand.accentColor]);
+  }, [accent]);
 
-  return <BrandContext.Provider value={{ brand, refresh: load }}>{children}</BrandContext.Provider>;
+  return (
+    <BrandContext.Provider value={{ brand, refresh: load, previewAccent }}>
+      {children}
+    </BrandContext.Provider>
+  );
 }
 export const useBrand = () => useContext(BrandContext);
