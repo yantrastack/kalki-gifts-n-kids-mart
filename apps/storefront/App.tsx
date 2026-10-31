@@ -19,6 +19,7 @@ import ProductScreen from './src/screens/ProductScreen';
 import CartScreen, { type CartItem } from './src/screens/CartScreen';
 import GiftFinderScreen from './src/screens/GiftFinderScreen';
 import ReelsScreen from './src/screens/ReelsScreen';
+import { AppFrame } from './src/layout';
 
 type Screen = 'home' | 'gift' | 'product' | 'cart' | 'reels';
 
@@ -180,199 +181,210 @@ function Shop() {
   // Discover reels take over the whole viewport (immersive, edge-to-edge black).
   if (screen === 'reels') {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: '#000',
-          paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
-          ...(Platform.OS === 'web'
-            ? { height: '100vh' as any, overflow: 'hidden' as const }
-            : null),
-        }}
-      >
-        <StatusBar style="light" />
-        <ReelsScreen
-          theme={theme}
-          currency={currency}
-          onClose={() => setScreen('home')}
-          onOpenProduct={openProduct}
-          onAdd={addToCart}
-          onShare={shareProduct}
-        />
-      </View>
+      <AppFrame background="#000">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: '#000',
+            paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
+          }}
+        >
+          <StatusBar style="light" />
+          <ReelsScreen
+            theme={theme}
+            currency={currency}
+            onClose={() => setScreen('home')}
+            onOpenProduct={openProduct}
+            onAdd={addToCart}
+            onShare={shareProduct}
+          />
+        </View>
+      </AppFrame>
     );
   }
 
+  // On web, AppFrame pins the app to the viewport (so bottom bars stay on
+  // screen and lists scroll internally) inside a centered mobile-width column.
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: theme.bg,
-        paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
-        // On web the page root grows with content; pin the app to the viewport
-        // so bottom bars stay on screen and lists scroll internally.
-        ...(Platform.OS === 'web' ? { height: '100vh' as any, overflow: 'hidden' as const } : null),
-      }}
-    >
-      <StatusBar style="dark" />
+    <AppFrame background={theme.bg}>
+      <SafeAreaView
+        style={{
+          flex: 1,
+          backgroundColor: theme.bg,
+          paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
+        }}
+      >
+        <StatusBar style="dark" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        {screen !== 'home' ? (
-          <Pressable
-            onPress={goBack}
-            hitSlop={10}
-            style={[
-              styles.hbtn,
-              { backgroundColor: theme.card, borderRadius: theme.r.pill },
-              theme.shadow,
-            ]}
-          >
-            <Feather name="chevron-left" size={20} color={theme.text} />
-          </Pressable>
-        ) : (
-          <View style={[styles.mark, { backgroundColor: theme.accent, borderRadius: theme.r.md }]}>
-            <Text style={styles.markText}>{brand?.brandInitial ?? 'S'}</Text>
-          </View>
-        )}
-        <View style={{ flex: 1, marginLeft: 10, marginRight: 6 }}>
-          <Text
-            style={[styles.title, { color: theme.text }, screen !== 'home' && { fontSize: 18 }]}
-            numberOfLines={2}
-          >
-            {title}
-          </Text>
-          {screen === 'home' && brand?.tagline ? (
-            <Text style={{ color: theme.faint, fontSize: 11 }} numberOfLines={1}>
-              {brand.tagline}
-            </Text>
-          ) : null}
-        </View>
-        <LangToggle theme={theme} />
-        {screen === 'home' && (
-          <Pressable
-            onPress={() => setScreen('reels')}
-            hitSlop={10}
-            style={[
-              styles.hbtn,
-              { backgroundColor: theme.accent, borderRadius: theme.r.pill, marginLeft: 8 },
-              theme.shadow,
-            ]}
-          >
-            <Feather name="film" size={18} color={theme.onAccent} />
-          </Pressable>
-        )}
-        <Pressable
-          onPress={() => setScreen('cart')}
-          hitSlop={10}
-          style={[
-            styles.hbtn,
-            { backgroundColor: theme.card, borderRadius: theme.r.pill, marginLeft: 8 },
-            theme.shadow,
-          ]}
-        >
-          <Feather name="shopping-bag" size={18} color={theme.text} />
-          {count > 0 && (
-            <View style={[styles.badge, { backgroundColor: theme.accent }]}>
-              <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          {screen !== 'home' ? (
+            <Pressable
+              onPress={goBack}
+              hitSlop={10}
+              style={[
+                styles.hbtn,
+                { backgroundColor: theme.card, borderRadius: theme.r.pill },
+                theme.shadow,
+              ]}
+            >
+              <Feather name="chevron-left" size={20} color={theme.text} />
+            </Pressable>
+          ) : (
+            <View
+              style={[styles.mark, { backgroundColor: theme.accent, borderRadius: theme.r.md }]}
+            >
+              <Text style={styles.markText}>{brand?.brandInitial ?? 'S'}</Text>
             </View>
           )}
-        </Pressable>
-      </View>
-
-      {/* Body */}
-      {error ? (
-        <View style={styles.center}>
-          <Feather name="wifi-off" size={32} color={theme.faint} />
-          <Text
-            style={{ color: theme.sub, textAlign: 'center', paddingHorizontal: 32, marginTop: 12 }}
-          >
-            {t('error.unreachable')}
-          </Text>
+          <View style={{ flex: 1, marginLeft: 10, marginRight: 6 }}>
+            <Text
+              style={[styles.title, { color: theme.text }, screen !== 'home' && { fontSize: 18 }]}
+              numberOfLines={2}
+            >
+              {title}
+            </Text>
+            {screen === 'home' && brand?.tagline ? (
+              <Text style={{ color: theme.faint, fontSize: 11 }} numberOfLines={1}>
+                {brand.tagline}
+              </Text>
+            ) : null}
+          </View>
+          <LangToggle theme={theme} />
+          {screen === 'home' && (
+            <Pressable
+              onPress={() => setScreen('reels')}
+              hitSlop={10}
+              style={[
+                styles.hbtn,
+                { backgroundColor: theme.accent, borderRadius: theme.r.pill, marginLeft: 8 },
+                theme.shadow,
+              ]}
+            >
+              <Feather name="film" size={18} color={theme.onAccent} />
+            </Pressable>
+          )}
           <Pressable
-            onPress={load}
-            style={({ pressed }) => [
-              styles.retry,
-              { backgroundColor: theme.accent, borderRadius: theme.r.pill },
-              pressed && { opacity: 0.85 },
+            onPress={() => setScreen('cart')}
+            hitSlop={10}
+            style={[
+              styles.hbtn,
+              { backgroundColor: theme.card, borderRadius: theme.r.pill, marginLeft: 8 },
+              theme.shadow,
             ]}
           >
-            <Text style={{ color: theme.onAccent, fontWeight: '700' }}>{t('common.retry')}</Text>
+            <Feather name="shopping-bag" size={18} color={theme.text} />
+            {count > 0 && (
+              <View style={[styles.badge, { backgroundColor: theme.accent }]}>
+                <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
-      ) : (
-        <>
-          {/* Home and Gift Finder stay mounted (hidden) so search state and
-              gift results survive a round-trip through a product page. */}
-          <View style={{ flex: 1, display: screen === 'home' || loading ? 'flex' : 'none' }}>
-            <HomeScreen
-              products={products}
-              theme={theme}
-              currency={currency}
-              loading={loading}
-              onOpen={openProduct}
-              onAdd={addToCart}
-              onGift={() => setScreen('gift')}
-            />
+
+        {/* Body */}
+        {error ? (
+          <View style={styles.center}>
+            <Feather name="wifi-off" size={32} color={theme.faint} />
+            <Text
+              style={{
+                color: theme.sub,
+                textAlign: 'center',
+                paddingHorizontal: 32,
+                marginTop: 12,
+              }}
+            >
+              {t('error.unreachable')}
+            </Text>
+            <Pressable
+              onPress={load}
+              style={({ pressed }) => [
+                styles.retry,
+                { backgroundColor: theme.accent, borderRadius: theme.r.pill },
+                pressed && { opacity: 0.85 },
+              ]}
+            >
+              <Text style={{ color: theme.onAccent, fontWeight: '700' }}>{t('common.retry')}</Text>
+            </Pressable>
           </View>
-          {!loading && (
-            <View style={{ flex: 1, display: screen === 'gift' ? 'flex' : 'none' }}>
-              <GiftFinderScreen
+        ) : (
+          <>
+            {/* Home and Gift Finder stay mounted (hidden) so search state and
+              gift results survive a round-trip through a product page. */}
+            <View style={{ flex: 1, display: screen === 'home' || loading ? 'flex' : 'none' }}>
+              <HomeScreen
+                products={products}
                 theme={theme}
                 currency={currency}
+                loading={loading}
                 onOpen={openProduct}
                 onAdd={addToCart}
+                onGift={() => setScreen('gift')}
               />
             </View>
-          )}
-          {screen === 'product' && selected && (
-            <ProductScreen
-              product={selected}
-              theme={theme}
-              brand={brand!}
-              onAdd={() => {
-                addToCart(selected);
-                setScreen('cart');
-              }}
-              onCall={callShop}
-              onWhatsApp={() => whatsappOrder(selected)}
-            />
-          )}
-          {screen === 'cart' && !loading && (
-            <CartScreen
-              items={cart}
-              theme={theme}
-              brand={brand!}
-              onInc={inc}
-              onDec={dec}
-              onRemove={remove}
-              onCall={callShop}
-              onWhatsApp={() => whatsappOrder()}
-              onBrowse={() => setScreen('home')}
-            />
-          )}
-        </>
-      )}
+            {!loading && (
+              <View style={{ flex: 1, display: screen === 'gift' ? 'flex' : 'none' }}>
+                <GiftFinderScreen
+                  theme={theme}
+                  currency={currency}
+                  onOpen={openProduct}
+                  onAdd={addToCart}
+                />
+              </View>
+            )}
+            {screen === 'product' && selected && (
+              <ProductScreen
+                product={selected}
+                theme={theme}
+                brand={brand!}
+                onAdd={() => {
+                  addToCart(selected);
+                  setScreen('cart');
+                }}
+                onCall={callShop}
+                onWhatsApp={() => whatsappOrder(selected)}
+              />
+            )}
+            {screen === 'cart' && !loading && (
+              <CartScreen
+                items={cart}
+                theme={theme}
+                brand={brand!}
+                onInc={inc}
+                onDec={dec}
+                onRemove={remove}
+                onCall={callShop}
+                onWhatsApp={() => whatsappOrder()}
+                onBrowse={() => setScreen('home')}
+              />
+            )}
+          </>
+        )}
 
-      {/* Floating cart summary on home */}
-      {screen === 'home' && !loading && !error && count > 0 && (
-        <Pressable
-          onPress={() => setScreen('cart')}
-          style={({ pressed }) => [
-            styles.cartBar,
-            { backgroundColor: theme.text, borderRadius: theme.r.lg },
-            theme.shadow,
-            pressed && { opacity: 0.9 },
-          ]}
-        >
-          <View style={[styles.cartBarBadge, { backgroundColor: theme.accent }]}>
-            <Text style={{ color: theme.onAccent, fontWeight: '800', fontSize: 13 }}>{count}</Text>
-          </View>
-          <Text style={styles.cartBarText}>{t('common.viewCart')}</Text>
-          <Text style={[styles.cartBarText, { marginLeft: 'auto' }]}>{money(currency, total)}</Text>
-        </Pressable>
-      )}
-    </SafeAreaView>
+        {/* Floating cart summary on home */}
+        {screen === 'home' && !loading && !error && count > 0 && (
+          <Pressable
+            onPress={() => setScreen('cart')}
+            style={({ pressed }) => [
+              styles.cartBar,
+              { backgroundColor: theme.text, borderRadius: theme.r.lg },
+              theme.shadow,
+              pressed && { opacity: 0.9 },
+            ]}
+          >
+            <View style={[styles.cartBarBadge, { backgroundColor: theme.accent }]}>
+              <Text style={{ color: theme.onAccent, fontWeight: '800', fontSize: 13 }}>
+                {count}
+              </Text>
+            </View>
+            <Text style={styles.cartBarText}>{t('common.viewCart')}</Text>
+            <Text style={[styles.cartBarText, { marginLeft: 'auto' }]}>
+              {money(currency, total)}
+            </Text>
+          </Pressable>
+        )}
+      </SafeAreaView>
+    </AppFrame>
   );
 }
 

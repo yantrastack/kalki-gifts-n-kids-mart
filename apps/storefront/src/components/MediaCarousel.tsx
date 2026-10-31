@@ -1,19 +1,12 @@
 import { useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  Platform,
-  StyleSheet,
-  useWindowDimensions,
-} from 'react-native';
+import { View, Text, FlatList, Pressable, Platform, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { useI18n } from '../i18n';
 import VideoPlayer from './VideoPlayer';
 import { type Theme, thumbColor, initials } from '../theme';
 import { mediaUrl } from '../api';
+import { useAppWidth } from '../layout';
 import type { ShopMedia } from '@stockwell/shared';
 
 /** Gallery of a product's photos and videos: swipe, arrows (web), tappable dots, counter. */
@@ -64,7 +57,7 @@ export default function MediaCarousel({
   productName: string;
   theme: Theme;
 }) {
-  const { width } = useWindowDimensions();
+  const width = useAppWidth();
   const { t } = useI18n();
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList<ShopMedia>>(null);
