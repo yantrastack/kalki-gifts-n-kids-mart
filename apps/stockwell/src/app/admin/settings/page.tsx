@@ -4,7 +4,7 @@ import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
 import { jget, jsend } from '@/lib/api';
 import { useUser } from '@/components/UserContext';
-import { useBrand, applyAccent } from '@/components/BrandProvider';
+import { useBrand } from '@/components/BrandProvider';
 
 const BRANDING = [
   { key: 'appName', label: 'App / store name', type: 'text' },
@@ -25,7 +25,7 @@ const COMPANY = [
 export default function SettingsPage() {
   const { useToast } = UI;
   const { isAdmin } = useUser();
-  const { refresh } = useBrand();
+  const { refresh, previewAccent } = useBrand();
   const toast = useToast();
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -33,9 +33,11 @@ export default function SettingsPage() {
   useEffect(() => {
     jget('/api/settings').then(setValues);
   }, []);
+  // An unsaved accent is only a preview: drop it when leaving the page.
+  useEffect(() => () => previewAccent(null), [previewAccent]);
   const set = (k: string, v: string) => {
     setValues((s) => ({ ...s, [k]: v }));
-    if (k === 'accentColor') applyAccent(v); // live preview
+    if (k === 'accentColor') previewAccent(v); // live preview, kept across theme flips
   };
   const save = async () => {
     setSaving(true);
