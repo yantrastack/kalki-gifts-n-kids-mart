@@ -300,3 +300,29 @@ describe('countGiftTypes', () => {
     expect(rank('').facets.types.jewelry).toBe(2);
   });
 });
+
+describe('rankGifts — malformed input and data', () => {
+  it('matches Telugu interests whether typed composed or decomposed', () => {
+    const composed = 'పైన'; // పైన, with the single "ai" vowel sign
+    const decomposed = 'పైన'; // the same word, vowel sign split in two
+    expect(decomposed).not.toBe(composed);
+    const catalog = [prod('t', { interests: [composed], occasions: ['birthday'] })];
+    const c = parseGiftCriteria(new URLSearchParams({ likes: decomposed }));
+    expect(rankGifts(catalog, c).matches.map((m) => m.product.id)).toEqual(['t']);
+  });
+
+  it('treats an unknown recipient as no preference instead of hiding tagged products', () => {
+    const c = parseGiftCriteria(new URLSearchParams('recipient=pets&occasion=birthday'));
+    expect(c.recipient).toBe('');
+    const unknown = rankGifts(CATALOG, c).matches.map((m) => m.product.id);
+    const none = rank('occasion=birthday').matches.map((m) => m.product.id);
+    expect(unknown).toEqual(none);
+  });
+
+  it('keeps a product whose age range is impossible (min above max) and gives no age score', () => {
+    const catalog = [prod('bad', { ageMin: 10, ageMax: 5, occasions: ['birthday'] })];
+    const r = rankGifts(catalog, parseGiftCriteria(new URLSearchParams('age=7&occasion=birthday')));
+    expect(r.matches.map((m) => m.product.id)).toEqual(['bad']);
+    expect(r.matches[0].reasons.some((x) => x.code === 'age')).toBe(false);
+  });
+});
