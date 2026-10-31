@@ -11,17 +11,28 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import {
+  GIFT_BUDGET_BOUNDS,
+  GIFT_BUDGETS,
   GIFT_OCCASIONS,
   GIFT_RECIPIENTS,
   GIFT_TYPES,
+  type GiftBudget,
+  type GiftBudgetCounts,
   type GiftMatch,
   type GiftOptions,
+  budgetToPriceRange,
+  money,
 } from '@stockwell/shared';
 import ProductCard from '../components/ProductCard';
 import ThemedInput, { FOCUS_RING } from '../components/ThemedInput';
 import { useI18n } from '../i18n';
 import type { Theme } from '../theme';
-import { type Product, findGifts, getGiftOptions } from '../api';
+import { type Product, findGifts, getGiftBudgetCounts, getGiftOptions } from '../api';
+
+/** Budget choice: a preset bucket, no limit, or a custom min/max. */
+type BudgetChoice = GiftBudget | 'any' | 'custom';
+const isPreset = (b: string): b is GiftBudget => (GIFT_BUDGETS as readonly string[]).includes(b);
+const digitsOnly = (v: string) => v.replace(/\D/g, '');
 
 export default function GiftFinderScreen({
   theme,
@@ -48,16 +59,58 @@ export default function GiftFinderScreen({
   const [age, setAge] = useState('');
   const [likes, setLikes] = useState('');
   const [types, setTypes] = useState<string[]>([]);
+  const [budget, setBudget] = useState<BudgetChoice>('any');
+  const [budgetCounts, setBudgetCounts] = useState<GiftBudgetCounts | null>(null);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [results, setResults] = useState<GiftMatch[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
 
+  // Hide presets with no in-stock products; if counts can't load, show them all.
+  useEffect(() => {
+    let alive = true;
+    getGiftBudgetCounts().then((counts) => {
+      if (!alive || !counts) return;
+      setBudgetCounts(counts);
+      setBudget((b) => (isPreset(b) && !counts[b] ? 'any' : b));
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const budgetOptions: BudgetChoice[] = [
+    'any',
+    ...GIFT_BUDGETS.filter((b) => !budgetCounts || budgetCounts[b] > 0),
+    'custom',
+  ];
+  const budgetLabel = (b: string) => {
+    if (!isPreset(b)) return t(`gift.budget.${b}`);
+    const { min, below } = GIFT_BUDGET_BOUNDS[b];
+    if (min === null) return t('gift.budget.under', { amount: money(currency, below ?? 0, 0) });
+    if (below === null) return t('gift.budget.above', { amount: money(currency, min, 0) });
+    return t('gift.budget.between', {
+      from: money(currency, min, 0),
+      to: money(currency, below, 0),
+    });
+  };
+  const customInvalid =
+    budget === 'custom' && !!minPrice && !!maxPrice && Number(minPrice) > Number(maxPrice);
+
   const toggleType = (val: string) =>
     setTypes((v) => (v.includes(val) ? v.filter((x) => x !== val) : [...v, val]));
 
   const search = async () => {
+    if (customInvalid) return;
+    const priceRange = isPreset(budget)
+      ? budgetToPriceRange(budget)
+      : budget === 'custom'
+        ? {
+            minPrice: minPrice ? Number(minPrice) : undefined,
+            maxPrice: maxPrice ? Number(maxPrice) : undefined,
+          }
+        : {};
     setSearching(true);
     setError('');
     try {
@@ -67,8 +120,7 @@ export default function GiftFinderScreen({
         age: age ? Number(age) : undefined,
         likes: likes || undefined,
         types: types.length ? types : undefined,
-        minPrice: minPrice ? Number(minPrice) : undefined,
-        maxPrice: maxPrice ? Number(maxPrice) : undefined,
+        ...priceRange,
       });
       setResults(found);
     } catch {
@@ -180,6 +232,59 @@ export default function GiftFinderScreen({
         />
       </Section>
 
+      <Section theme={theme} title={t('gift.budgetQ')}>
+        <Chips
+          theme={theme}
+          options={budgetOptions}
+          label={budgetLabel}
+          selected={[budget]}
+          onPress={(b) => setBudget(b === budget ? 'any' : (b as BudgetChoice))}
+        />
+        {budget === 'custom' && (
+          <>
+            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 12 }}>
+              <ThemedInput
+                theme={theme}
+                value={minPrice}
+                onChangeText={(v) => setMinPrice(digitsOnly(v))}
+                keyboardType="number-pad"
+                placeholder={t('gift.min')}
+                placeholderTextColor={theme.faint}
+                accessibilityLabel={t('gift.min')}
+                containerStyle={[
+                  styles.input,
+                  { backgroundColor: theme.card, borderRadius: theme.r.md, flex: 1 },
+                ]}
+                inputStyle={[styles.inputText, { color: theme.text }]}
+              />
+              <Text style={{ color: theme.faint }}>—</Text>
+              <ThemedInput
+                theme={theme}
+                value={maxPrice}
+                onChangeText={(v) => setMaxPrice(digitsOnly(v))}
+                keyboardType="number-pad"
+                placeholder={t('gift.max')}
+                placeholderTextColor={theme.faint}
+                accessibilityLabel={t('gift.max')}
+                containerStyle={[
+                  styles.input,
+                  { backgroundColor: theme.card, borderRadius: theme.r.md, flex: 1 },
+                ]}
+                inputStyle={[styles.inputText, { color: theme.text }]}
+              />
+            </View>
+            {customInvalid ? (
+              <Text
+                accessibilityRole="alert"
+                style={{ color: theme.danger, marginTop: 8, fontSize: 13 }}
+              >
+                {t('gift.minAboveMax')}
+              </Text>
+            ) : null}
+          </>
+        )}
+      </Section>
+
       <Section theme={theme} title={t('gift.ageQ')}>
         <ThemedInput
           theme={theme}
@@ -220,51 +325,18 @@ export default function GiftFinderScreen({
         />
       </Section>
 
-      <Section theme={theme} title={t('gift.budgetQ')}>
-        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-          <ThemedInput
-            theme={theme}
-            value={minPrice}
-            onChangeText={setMinPrice}
-            keyboardType="number-pad"
-            placeholder={t('gift.min')}
-            placeholderTextColor={theme.faint}
-            accessibilityLabel={t('gift.min')}
-            containerStyle={[
-              styles.input,
-              { backgroundColor: theme.card, borderRadius: theme.r.md, flex: 1 },
-            ]}
-            inputStyle={[styles.inputText, { color: theme.text }]}
-          />
-          <Text style={{ color: theme.faint }}>—</Text>
-          <ThemedInput
-            theme={theme}
-            value={maxPrice}
-            onChangeText={setMaxPrice}
-            keyboardType="number-pad"
-            placeholder={t('gift.max')}
-            placeholderTextColor={theme.faint}
-            accessibilityLabel={t('gift.max')}
-            containerStyle={[
-              styles.input,
-              { backgroundColor: theme.card, borderRadius: theme.r.md, flex: 1 },
-            ]}
-            inputStyle={[styles.inputText, { color: theme.text }]}
-          />
-        </View>
-      </Section>
-
       {error ? (
         <Text style={{ color: theme.danger, marginTop: 14, fontSize: 13 }}>{error}</Text>
       ) : null}
 
       <Pressable
         onPress={search}
-        disabled={searching}
+        disabled={searching || customInvalid}
         style={({ pressed }) => [
           styles.cta,
           { backgroundColor: theme.accent, borderRadius: theme.r.lg },
           pressed && { opacity: 0.85, transform: [{ scale: 0.985 }] },
+          customInvalid && { opacity: 0.5 },
         ]}
       >
         {searching ? (
@@ -322,6 +394,8 @@ function Chips({
           <Pressable
             key={o}
             onPress={() => onPress(o)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
             style={[
               styles.chip,
               {

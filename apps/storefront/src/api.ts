@@ -4,6 +4,7 @@ import {
   GIFT_OCCASIONS,
   GIFT_TYPES,
   type FeedResponse,
+  type GiftBudgetCounts,
   type GiftMatch,
   type GiftOptions,
   type GiftQuery,
@@ -72,6 +73,16 @@ export async function findGifts(query: GiftQuery): Promise<GiftMatch[]> {
   const r = await fetch(`${API_BASE}/api/shop/gift-finder?${params}`);
   if (!r.ok) throw new Error('Gift search failed');
   return r.json();
+}
+
+/** In-stock product count per budget preset; null if unavailable (show every preset). */
+export async function getGiftBudgetCounts(): Promise<GiftBudgetCounts | null> {
+  try {
+    const r = await fetch(`${API_BASE}/api/shop/gift-finder/budgets`);
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
+  }
 }
 
 /* ------------------------------------------------------- discover feed + events */
