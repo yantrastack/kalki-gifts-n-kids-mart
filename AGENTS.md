@@ -127,6 +127,13 @@ Demo logins (password `stockwell123`): `admin@stockwell.app` (admin),
   each interest/keyword hit +10 (capped), budget is a hard filter. See the route
   handler's header comment. An LLM/embedding reranker can layer on the same
   `GiftQuery` later.
+- **Occasions and gift types are dynamic**: the built-in lists in `@stockwell/shared`
+  (`GIFT_OCCASIONS`, `GIFT_TYPES`) plus any word an admin adds with the **+** on the gift
+  chips (`GiftFields.tsx`, used by the Add product popup and the Gifting tab). Custom words
+  are stored as lower-case keys (`giftTagKey`) in the same CSV columns, and offered back via
+  `GET /api/gift-options` (admin, all products) and `GET /api/shop/gift-options` (public,
+  sellable products only). The storefront labels them with `giftTag()` (translation if there
+  is one, else the word as typed).
 - **Match reasons are translatable**: the API returns `GiftReason[]` (structured
   codes like `{ code: "occasion", value: "birthday" }`); the storefront renders
   each via `giftReason()` in `src/i18n`. Never emit English reason sentences.

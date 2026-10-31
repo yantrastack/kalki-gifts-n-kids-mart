@@ -1,6 +1,6 @@
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import type { GiftReason } from '@stockwell/shared';
+import { giftTagLabel, type GiftReason } from '@stockwell/shared';
 import { en } from './en';
 import { te } from './te';
 
@@ -65,6 +65,11 @@ type I18nValue = {
   t: (key: string, params?: Params) => string;
   /** Turn a structured GiftReason from the API into a localized sentence. */
   giftReason: (r: GiftReason) => string;
+  /**
+   * Label for an occasion / gift type. Built-in ones are translated; words the shop added
+   * have no translation, so they are shown as typed ("raksha-bandhan" → "raksha bandhan").
+   */
+  giftTag: (group: 'occasion' | 'type', key: string) => string;
 };
 
 const I18nContext = createContext<I18nValue | null>(null);
@@ -79,17 +84,27 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const t = useCallback((key: string, params?: Params) => translate(lang, key, params), [lang]);
 
+  const giftTag = useCallback(
+    (group: 'occasion' | 'type', key: string) => {
+      const path = `gift.${group}.${key}`;
+      const label = t(path);
+      // No translation (a word the shop added) → show it as typed, in Title Case like the rest.
+      return label === path ? giftTagLabel(key).replace(/\b\w/g, (c) => c.toUpperCase()) : label;
+    },
+    [t],
+  );
+
   const giftReason = useCallback(
     (r: GiftReason) => {
       switch (r.code) {
         case 'occasion':
-          return t('gift.reason.occasion', { occasion: t(`gift.occasion.${r.value}`) });
+          return t('gift.reason.occasion', { occasion: giftTag('occasion', r.value) });
         case 'recipient':
           return t('gift.reason.recipient', { recipient: t(`gift.recipient.${r.value}`) });
         case 'type': {
           const types = r.value
             .split(',')
-            .map((k) => t(`gift.type.${k}`))
+            .map((k) => giftTag('type', k))
             .join(' / ');
           return t('gift.reason.type', { types });
         }
@@ -99,12 +114,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
           return t(`gift.reason.${r.code}`);
       }
     },
-    [t],
+    [t, giftTag],
   );
 
   const value = useMemo<I18nValue>(
-    () => ({ lang, setLang, t, giftReason }),
-    [lang, setLang, t, giftReason],
+    () => ({ lang, setLang, t, giftReason, giftTag }),
+    [lang, setLang, t, giftReason, giftTag],
   );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

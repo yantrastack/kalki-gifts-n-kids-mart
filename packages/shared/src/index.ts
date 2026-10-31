@@ -77,6 +77,19 @@ export const GIFT_TYPES = [
   'chocolates',
 ] as const;
 
+/**
+ * Occasion and gift-type choices. The built-in lists above are always present; admins can
+ * add their own words, which are stored as plain keys on products and offered back to
+ * everyone (GET /api/gift-options for admin, GET /api/shop/gift-options for the storefront).
+ */
+export type GiftOptions = { occasions: string[]; types: string[] };
+
+/** Turn a typed tag ("Raksha Bandhan") into its stored key ("raksha-bandhan"). */
+export const giftTagKey = (raw: string): string => raw.trim().toLowerCase().replace(/\s+/g, '-');
+
+/** Readable text for a stored key when no translation exists ("raksha-bandhan" → "raksha bandhan"). */
+export const giftTagLabel = (key: string): string => key.replace(/-/g, ' ');
+
 /** Gift attributes attached to a ShopProduct (empty arrays = not tagged for gifting). */
 export type GiftAttributes = {
   occasions: string[];

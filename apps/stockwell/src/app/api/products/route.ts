@@ -9,6 +9,15 @@ import {
   normaliseSku,
 } from '@/lib/catalog';
 import { like, or, eq, and, desc, sql } from 'drizzle-orm';
+import { csvToList } from '@stockwell/shared';
+
+// Gift tags arrive as a CSV string (or a list); store them trimmed, lower-cased and de-duplicated.
+const giftCsv = (v: unknown): string | null => {
+  const list = csvToList(Array.isArray(v) ? v.join(',') : typeof v === 'string' ? v : '');
+  return list.length ? [...new Set(list)].join(',') : null;
+};
+const giftAge = (v: unknown): number | null =>
+  v === '' || v == null || !Number.isFinite(Number(v)) ? null : Math.max(0, Math.trunc(Number(v)));
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -103,6 +112,12 @@ export async function POST(req: NextRequest) {
     tag: body.tag || null,
     hsnCode: body.hsnCode || null,
     gstRate: body.gstRate != null ? Number(body.gstRate) : null,
+    giftOccasions: giftCsv(body.giftOccasions),
+    giftRecipients: giftCsv(body.giftRecipients),
+    giftTypes: giftCsv(body.giftTypes),
+    giftInterests: giftCsv(body.giftInterests),
+    giftAgeMin: giftAge(body.giftAgeMin),
+    giftAgeMax: giftAge(body.giftAgeMax),
     createdAt: now,
     updatedAt: now,
   };

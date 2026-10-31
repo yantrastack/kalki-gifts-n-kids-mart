@@ -1,12 +1,25 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import * as UI from './ui';
+import GiftFields, { EMPTY_GIFT, type GiftValue } from './GiftFields';
+import MediaPicker from './MediaPicker';
 import { jget } from '@/lib/api';
+import { useI18n } from '@/i18n';
 
 // Shared "Add product" form — used by the Products page and the purchase
 // entry form. Collects full product details; the parent performs the POST.
-export default function AddProductModal({ open, onClose, onSubmit, defaults }: any) {
+// With `customizable`, a Customize button reveals photo/video and Gift Finder sections:
+// `onSubmit(form, files)` then also gets the gift tags (in `form`) and the chosen files,
+// which the parent uploads once the product exists.
+export default function AddProductModal({
+  open,
+  onClose,
+  onSubmit,
+  defaults,
+  customizable = false,
+}: any) {
+  const { t } = useI18n();
   const empty = {
     name: '',
     sku: '',
@@ -23,18 +36,53 @@ export default function AddProductModal({ open, onClose, onSubmit, defaults }: a
   };
   const [form, setForm] = useState<any>(empty);
   const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [customize, setCustomize] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [gift, setGift] = useState<GiftValue>(EMPTY_GIFT);
+  const [busy, setBusy] = useState(false);
+  const extrasRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     jget('/api/warehouses').then(setWarehouses);
   }, []);
   useEffect(() => {
-    if (open)
+    if (open) {
       setForm({
         ...empty,
         warehouse: warehouses[0]?.id || '',
         ...(defaults || {}),
       });
+      setCustomize(false);
+      setFiles([]);
+      setGift(EMPTY_GIFT);
+    }
   }, [open]);
+  useEffect(() => {
+    if (customize) extrasRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [customize]);
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const patchGift = (p: Partial<GiftValue>) => setGift((g) => ({ ...g, ...p }));
+
+  const submit = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (!customizable) return await onSubmit(form);
+      await onSubmit(
+        {
+          ...form,
+          giftOccasions: gift.occasions.join(','),
+          giftRecipients: gift.recipients.join(','),
+          giftTypes: gift.types.join(','),
+          giftInterests: gift.interests,
+          giftAgeMin: gift.ageMin === '' ? null : Number(gift.ageMin),
+          giftAgeMax: gift.ageMax === '' ? null : Number(gift.ageMax),
+        },
+        files,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <UI.Modal open={open} onClose={onClose} large>
       <div
@@ -172,6 +220,23 @@ export default function AddProductModal({ open, onClose, onSubmit, defaults }: a
             onChange={(e) => set('supplier', e.target.value)}
           />
         </label>
+        {customizable && (
+          // Kept mounted while hidden so nothing typed or chosen is lost.
+          <div
+            ref={extrasRef}
+            id="add-product-extras"
+            style={{
+              gridColumn: '1 / -1',
+              display: customize ? 'grid' : 'none',
+              gap: 22,
+              paddingTop: 6,
+              borderTop: '1px solid var(--border-subtle)',
+            }}
+          >
+            <MediaPicker files={files} onChange={setFiles} disabled={busy} />
+            <GiftFields value={gift} onChange={patchGift} />
+          </div>
+        )}
       </div>
       <div
         style={{
@@ -183,15 +248,28 @@ export default function AddProductModal({ open, onClose, onSubmit, defaults }: a
           background: 'var(--bg-muted)',
         }}
       >
+        {customizable && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ marginRight: 'auto' }}
+            aria-expanded={customize}
+            aria-controls="add-product-extras"
+            onClick={() => setCustomize((c) => !c)}
+          >
+            <Icon name="settings" size={14} />{' '}
+            {customize ? t('productForm.hideCustomize') : t('productForm.customize')}
+          </button>
+        )}
         <button className="btn btn-secondary" onClick={onClose}>
           Cancel
         </button>
         <button
           className="btn btn-primary"
-          onClick={() => onSubmit(form)}
-          disabled={!form.name || !form.sku}
+          onClick={submit}
+          disabled={!form.name || !form.sku || busy}
         >
-          <Icon name="check" size={14} /> Publish product
+          <Icon name="check" size={14} /> {busy ? t('productForm.publishing') : 'Publish product'}
         </button>
       </div>
     </UI.Modal>
