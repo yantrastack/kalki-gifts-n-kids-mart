@@ -30,6 +30,7 @@ export const te: Dict = {
 
   card: {
     onlyLeft: 'కేవలం {count} మిగిలి ఉన్నాయి',
+    addToCart: '{name} ను కార్ట్‌కు జోడించండి',
   },
 
   product: {
