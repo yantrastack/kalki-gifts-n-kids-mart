@@ -851,6 +851,23 @@ table.dt.dt-fixed tbody td.col-center {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+/* Opt-in: keep the heading where it is (left- or right-aligned) and centre the values
+   under the heading word. The column shrinks to its content (width: 1%), so it is as
+   wide as its heading and the values' centre line is the heading text's centre line.
+   The heading's own text-align is left to .col-num / the default. */
+table.dt thead th.col-mid {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: calc(var(--pad-cell-x) * 1.5);
+  padding-right: calc(var(--pad-cell-x) * 1.5);
+}
+table.dt tbody td.col-mid {
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  padding-left: calc(var(--pad-cell-x) * 1.5);
+  padding-right: calc(var(--pad-cell-x) * 1.5);
+}
 
 /* ===== Inputs ===== */
 .input,

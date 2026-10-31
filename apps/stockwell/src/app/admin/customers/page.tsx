@@ -160,10 +160,10 @@ export default function CustomersPage() {
                 <th>Customer</th>
                 <th>Type</th>
                 <th>Email</th>
-                <th className="col-num">Orders</th>
-                <th className="col-num">Lifetime spend</th>
-                <th className="col-num">Balance</th>
-                <th>Last order</th>
+                <th className="col-num col-mid">Orders</th>
+                <th className="col-num col-mid">Lifetime spend</th>
+                <th className="col-num col-mid">Balance</th>
+                <th className="col-mid">Last order</th>
               </tr>
             </thead>
             <tbody>
@@ -184,15 +184,15 @@ export default function CustomersPage() {
                   <td className="muted" style={{ fontSize: 'var(--t-sm)' }}>
                     {c.email}
                   </td>
-                  <td className="col-num">{c.orders}</td>
-                  <td className="col-num mono">{fmt.money(c.spend)}</td>
+                  <td className="col-mid">{c.orders}</td>
+                  <td className="col-mid mono">{fmt.money(c.spend)}</td>
                   <td
-                    className="col-num mono"
+                    className="col-mid mono"
                     style={{ color: c.balance > 0 ? 'var(--danger)' : 'var(--fg-tertiary)' }}
                   >
                     {c.balance > 0 ? fmt.money(c.balance) : '—'}
                   </td>
-                  <td className="muted">{c.lastOrder}</td>
+                  <td className="muted col-mid">{c.lastOrder}</td>
                 </tr>
               ))}
               {query && filtered.length === 0 && (
