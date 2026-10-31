@@ -3,7 +3,6 @@ import { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   StyleSheet,
   ScrollView,
@@ -13,6 +12,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { GIFT_OCCASIONS, GIFT_RECIPIENTS, GIFT_TYPES, type GiftMatch } from '@stockwell/shared';
 import ProductCard from '../components/ProductCard';
+import ThemedInput, { FOCUS_RING } from '../components/ThemedInput';
 import { useI18n } from '../i18n';
 import type { Theme } from '../theme';
 import { type Product, findGifts } from '../api';
@@ -169,34 +169,32 @@ export default function GiftFinderScreen({
       </Section>
 
       <Section theme={theme} title={t('gift.ageQ')}>
-        <TextInput
+        <ThemedInput
+          theme={theme}
           value={age}
           onChangeText={setAge}
           keyboardType="number-pad"
           placeholder={t('gift.agePlaceholder')}
           placeholderTextColor={theme.faint}
-          style={[
+          accessibilityLabel={t('gift.ageQ')}
+          containerStyle={[
             styles.input,
-            {
-              backgroundColor: theme.card,
-              color: theme.text,
-              borderRadius: theme.r.md,
-              width: 110,
-            },
+            { backgroundColor: theme.card, borderRadius: theme.r.md, width: 110 },
           ]}
+          inputStyle={[styles.inputText, { color: theme.text }]}
         />
       </Section>
 
       <Section theme={theme} title={t('gift.likesQ')}>
-        <TextInput
+        <ThemedInput
+          theme={theme}
           value={likes}
           onChangeText={setLikes}
           placeholder={t('gift.likesPlaceholder')}
           placeholderTextColor={theme.faint}
-          style={[
-            styles.input,
-            { backgroundColor: theme.card, color: theme.text, borderRadius: theme.r.md },
-          ]}
+          accessibilityLabel={t('gift.likesQ')}
+          containerStyle={[styles.input, { backgroundColor: theme.card, borderRadius: theme.r.md }]}
+          inputStyle={[styles.inputText, { color: theme.text }]}
         />
       </Section>
 
@@ -213,28 +211,34 @@ export default function GiftFinderScreen({
 
       <Section theme={theme} title={t('gift.budgetQ')}>
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-          <TextInput
+          <ThemedInput
+            theme={theme}
             value={minPrice}
             onChangeText={setMinPrice}
             keyboardType="number-pad"
             placeholder={t('gift.min')}
             placeholderTextColor={theme.faint}
-            style={[
+            accessibilityLabel={t('gift.min')}
+            containerStyle={[
               styles.input,
-              { backgroundColor: theme.card, color: theme.text, borderRadius: theme.r.md, flex: 1 },
+              { backgroundColor: theme.card, borderRadius: theme.r.md, flex: 1 },
             ]}
+            inputStyle={[styles.inputText, { color: theme.text }]}
           />
           <Text style={{ color: theme.faint }}>—</Text>
-          <TextInput
+          <ThemedInput
+            theme={theme}
             value={maxPrice}
             onChangeText={setMaxPrice}
             keyboardType="number-pad"
             placeholder={t('gift.max')}
             placeholderTextColor={theme.faint}
-            style={[
+            accessibilityLabel={t('gift.max')}
+            containerStyle={[
               styles.input,
-              { backgroundColor: theme.card, color: theme.text, borderRadius: theme.r.md, flex: 1 },
+              { backgroundColor: theme.card, borderRadius: theme.r.md, flex: 1 },
             ]}
+            inputStyle={[styles.inputText, { color: theme.text }]}
           />
         </View>
       </Section>
@@ -333,7 +337,9 @@ function Chips({
 const styles = StyleSheet.create({
   hero: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
   chip: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 8 },
-  input: { paddingHorizontal: 14, paddingVertical: 11, fontSize: 15 },
+  // Padding is reduced by the reserved focus-ring border so inputs keep their size.
+  input: { paddingHorizontal: 14 - FOCUS_RING },
+  inputText: { paddingVertical: 11 - FOCUS_RING, fontSize: 15 },
   cta: {
     flexDirection: 'row',
     alignItems: 'center',

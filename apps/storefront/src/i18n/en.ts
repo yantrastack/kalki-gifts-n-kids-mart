@@ -10,6 +10,7 @@ export const en = {
   common: {
     retry: 'Retry',
     search: 'Search products',
+    clearSearch: 'Clear search',
     all: 'All',
     viewCart: 'View cart',
   },
