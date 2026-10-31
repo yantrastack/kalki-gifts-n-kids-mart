@@ -5,7 +5,7 @@ import {
   GIFT_TYPES,
   type FeedResponse,
   type GiftBudgetCounts,
-  type GiftMatch,
+  type GiftFinderResponse,
   type GiftOptions,
   type GiftQuery,
   type ProductEventType,
@@ -61,7 +61,8 @@ export async function getGiftOptions(): Promise<GiftOptions> {
   }
 }
 
-export async function findGifts(query: GiftQuery): Promise<GiftMatch[]> {
+/** Ranked gift suggestions. Throws on a network error or a rejected query (e.g. min > max). */
+export async function findGifts(query: GiftQuery): Promise<GiftFinderResponse> {
   const params = new URLSearchParams();
   if (query.occasion) params.set('occasion', query.occasion);
   if (query.recipient) params.set('recipient', query.recipient);
