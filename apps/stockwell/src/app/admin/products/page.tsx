@@ -7,7 +7,7 @@ import AddProductModal from '@/components/AddProductModal';
 import ImportProductsModal from '@/components/ImportProductsModal';
 import { useI18n } from '@/i18n';
 import { useUser } from '@/components/UserContext';
-import { GIFT_OCCASIONS, GIFT_RECIPIENTS, GIFT_TYPES } from '@stockwell/shared';
+import GiftFields, { type GiftValue } from '@/components/GiftFields';
 
 export default function ProductsPage() {
   const {
@@ -113,15 +113,35 @@ export default function ProductsPage() {
       setRemoving(null);
     }
   };
-  const handleAdd = async (form: any) => {
+  const handleAdd = async (form: any, files: File[] = []) => {
+    let created: any;
     try {
-      await jsend('/api/products', 'POST', form);
-      setAddOpen(false);
-      toast({ message: `Published "${form.name}"`, icon: 'check' });
-      load();
+      created = await jsend('/api/products', 'POST', form);
     } catch (e: any) {
       toast({ message: e.message, icon: 'alert', type: 'danger' });
+      return;
     }
+    setAddOpen(false);
+    // Photos/videos need the new product's id, so they go up right after it is created.
+    // If that fails the product still exists; say so and let them retry from its Media tab.
+    if (files.length) {
+      try {
+        const fd = new FormData();
+        for (const f of files) fd.append('files', f);
+        const r = await fetch(`/api/products/${created.id}/media`, { method: 'POST', body: fd });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Upload failed');
+      } catch (e: any) {
+        toast({
+          message: t('productForm.mediaFailed', { error: e.message }),
+          icon: 'alert',
+          type: 'danger',
+        });
+        load();
+        return;
+      }
+    }
+    toast({ message: `Published "${form.name}"`, icon: 'check' });
+    load();
   };
 
   const SortHeader = ({ k, children, align }: any) => {
@@ -532,7 +552,12 @@ export default function ProductsPage() {
         </div>
       </Modal>
 
-      <AddProductModal open={addOpen} onClose={() => setAddOpen(false)} onSubmit={handleAdd} />
+      <AddProductModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onSubmit={handleAdd}
+        customizable
+      />
       <ImportProductsModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
@@ -989,36 +1014,6 @@ function MediaTab({ productId, isAdmin }: { productId: string; isAdmin: boolean 
   );
 }
 
-function ChipToggles({
-  options,
-  value,
-  onChange,
-}: {
-  options: readonly string[];
-  value: string[];
-  onChange: (v: string[]) => void;
-}) {
-  const toggle = (o: string) =>
-    onChange(value.includes(o) ? value.filter((v) => v !== o) : [...value, o]);
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {options.map((o) => {
-        const on = value.includes(o);
-        return (
-          <button
-            key={o}
-            onClick={() => toggle(o)}
-            className={on ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
-            style={{ textTransform: 'capitalize' }}
-          >
-            {o.replace(/-/g, ' ')}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 // Tags a product so the storefront's Gift Finder can rank it.
 function GiftingTab({ product: p, onSaved }: any) {
   const { useToast } = UI;
@@ -1028,24 +1023,26 @@ function GiftingTab({ product: p, onSaved }: any) {
       .split(',')
       .map((x: string) => x.trim())
       .filter(Boolean);
-  const [occasions, setOccasions] = useState<string[]>(csv(p.giftOccasions));
-  const [recipients, setRecipients] = useState<string[]>(csv(p.giftRecipients));
-  const [types, setTypes] = useState<string[]>(csv(p.giftTypes));
-  const [interests, setInterests] = useState((p.giftInterests || '') as string);
-  const [ageMin, setAgeMin] = useState(p.giftAgeMin ?? '');
-  const [ageMax, setAgeMax] = useState(p.giftAgeMax ?? '');
+  const [gift, setGift] = useState<GiftValue>({
+    occasions: csv(p.giftOccasions),
+    recipients: csv(p.giftRecipients),
+    types: csv(p.giftTypes),
+    interests: (p.giftInterests || '') as string,
+    ageMin: p.giftAgeMin ?? '',
+    ageMax: p.giftAgeMax ?? '',
+  });
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     setSaving(true);
     try {
       await jsend(`/api/products/${p.id}`, 'PUT', {
-        giftOccasions: occasions.join(','),
-        giftRecipients: recipients.join(','),
-        giftTypes: types.join(','),
-        giftInterests: interests,
-        giftAgeMin: ageMin === '' ? null : Number(ageMin),
-        giftAgeMax: ageMax === '' ? null : Number(ageMax),
+        giftOccasions: gift.occasions.join(','),
+        giftRecipients: gift.recipients.join(','),
+        giftTypes: gift.types.join(','),
+        giftInterests: gift.interests,
+        giftAgeMin: gift.ageMin === '' ? null : Number(gift.ageMin),
+        giftAgeMax: gift.ageMax === '' ? null : Number(gift.ageMax),
       });
       toast({ message: 'Gift details saved', icon: 'check' });
       onSaved();
@@ -1057,70 +1054,13 @@ function GiftingTab({ product: p, onSaved }: any) {
   };
 
   return (
-    <div className="dp-section">
-      <h4>Gift finder details</h4>
-      <p className="muted tiny" style={{ marginBottom: 14 }}>
-        Tag this product so customers can discover it with <strong>Find a gift</strong> in the
-        storefront. Leave everything empty if it isn't a gift item.
-      </p>
-      <div style={{ display: 'grid', gap: 14 }}>
-        <div>
-          <div className="muted tiny" style={{ marginBottom: 6 }}>
-            Occasions
-          </div>
-          <ChipToggles options={GIFT_OCCASIONS} value={occasions} onChange={setOccasions} />
-        </div>
-        <div>
-          <div className="muted tiny" style={{ marginBottom: 6 }}>
-            Who it suits
-          </div>
-          <ChipToggles options={GIFT_RECIPIENTS} value={recipients} onChange={setRecipients} />
-        </div>
-        <div>
-          <div className="muted tiny" style={{ marginBottom: 6 }}>
-            Gift type
-          </div>
-          <ChipToggles options={GIFT_TYPES} value={types} onChange={setTypes} />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <label className="field">
-            <span>Age from</span>
-            <input
-              className="input"
-              type="number"
-              min={0}
-              value={ageMin}
-              onChange={(e) => setAgeMin(e.target.value)}
-              placeholder="e.g. 3"
-            />
-          </label>
-          <label className="field">
-            <span>Age to</span>
-            <input
-              className="input"
-              type="number"
-              min={0}
-              value={ageMax}
-              onChange={(e) => setAgeMax(e.target.value)}
-              placeholder="e.g. 12"
-            />
-          </label>
-        </div>
-        <label className="field">
-          <span>Interests (comma separated)</span>
-          <input
-            className="input"
-            value={interests}
-            onChange={(e) => setInterests(e.target.value)}
-            placeholder="music, sports, cooking, reading"
-          />
-        </label>
-        <div>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>
-            <Icon name="check" size={14} /> {saving ? 'Saving…' : 'Save gift details'}
-          </button>
-        </div>
+    <>
+      <GiftFields value={gift} onChange={(patch) => setGift((g) => ({ ...g, ...patch }))} />
+      <div className="dp-section" style={{ marginTop: 14 }}>
+        <button className="btn btn-primary" onClick={save} disabled={saving}>
+          <Icon name="check" size={14} /> {saving ? 'Saving…' : 'Save gift details'}
+        </button>
       </div>
-    </div>
+    </>
   );
 }

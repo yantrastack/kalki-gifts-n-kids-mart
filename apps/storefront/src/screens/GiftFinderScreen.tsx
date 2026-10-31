@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,18 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { GIFT_OCCASIONS, GIFT_RECIPIENTS, GIFT_TYPES, type GiftMatch } from '@stockwell/shared';
+import {
+  GIFT_OCCASIONS,
+  GIFT_RECIPIENTS,
+  GIFT_TYPES,
+  type GiftMatch,
+  type GiftOptions,
+} from '@stockwell/shared';
 import ProductCard from '../components/ProductCard';
 import ThemedInput, { FOCUS_RING } from '../components/ThemedInput';
 import { useI18n } from '../i18n';
 import type { Theme } from '../theme';
-import { type Product, findGifts } from '../api';
+import { type Product, findGifts, getGiftOptions } from '../api';
 
 export default function GiftFinderScreen({
   theme,
@@ -28,7 +34,15 @@ export default function GiftFinderScreen({
   onOpen: (p: Product) => void;
   onAdd: (p: Product) => void;
 }) {
-  const { t, giftReason } = useI18n();
+  const { t, giftReason, giftTag } = useI18n();
+  // Built-in choices show at once; words the shop added arrive with the fetch.
+  const [options, setOptions] = useState<GiftOptions>({
+    occasions: [...GIFT_OCCASIONS],
+    types: [...GIFT_TYPES],
+  });
+  useEffect(() => {
+    getGiftOptions().then(setOptions);
+  }, []);
   const [occasion, setOccasion] = useState('');
   const [recipient, setRecipient] = useState('');
   const [age, setAge] = useState('');
@@ -149,9 +163,8 @@ export default function GiftFinderScreen({
       <Section theme={theme} title={t('gift.occasionQ')}>
         <Chips
           theme={theme}
-          t={t}
-          prefix="gift.occasion"
-          options={GIFT_OCCASIONS}
+          label={(o) => giftTag('occasion', o)}
+          options={options.occasions}
           selected={occasion ? [occasion] : []}
           onPress={(o) => setOccasion(o === occasion ? '' : o)}
         />
@@ -160,8 +173,7 @@ export default function GiftFinderScreen({
       <Section theme={theme} title={t('gift.recipientQ')}>
         <Chips
           theme={theme}
-          t={t}
-          prefix="gift.recipient"
+          label={(r) => t(`gift.recipient.${r}`)}
           options={GIFT_RECIPIENTS}
           selected={recipient ? [recipient] : []}
           onPress={(r) => setRecipient(r === recipient ? '' : r)}
@@ -201,9 +213,8 @@ export default function GiftFinderScreen({
       <Section theme={theme} title={t('gift.typeQ')}>
         <Chips
           theme={theme}
-          t={t}
-          prefix="gift.type"
-          options={GIFT_TYPES}
+          label={(o) => giftTag('type', o)}
+          options={options.types}
           selected={types}
           onPress={toggleType}
         />
@@ -292,15 +303,13 @@ function Section({
 
 function Chips({
   theme,
-  t,
-  prefix,
+  label,
   options,
   selected,
   onPress,
 }: {
   theme: Theme;
-  t: (key: string) => string;
-  prefix: string;
+  label: (option: string) => string;
   options: readonly string[];
   selected: string[];
   onPress: (o: string) => void;
@@ -325,7 +334,7 @@ function Chips({
             <Text
               style={{ color: on ? theme.onAccent : theme.sub, fontSize: 13, fontWeight: '600' }}
             >
-              {t(`${prefix}.${o}`)}
+              {label(o)}
             </Text>
           </Pressable>
         );

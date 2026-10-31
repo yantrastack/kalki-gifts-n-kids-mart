@@ -1,8 +1,11 @@
 import { Platform } from 'react-native';
 import {
   DEFAULT_BRAND,
+  GIFT_OCCASIONS,
+  GIFT_TYPES,
   type FeedResponse,
   type GiftMatch,
+  type GiftOptions,
   type GiftQuery,
   type ProductEventType,
   type ShopBrand,
@@ -44,6 +47,17 @@ export async function getProducts(): Promise<Product[]> {
   const r = await fetch(`${API_BASE}/api/shop/products`);
   if (!r.ok) throw new Error('Failed to load products');
   return r.json();
+}
+
+/** Occasion / gift-type choices: the built-in ones plus any the shop has added. */
+export async function getGiftOptions(): Promise<GiftOptions> {
+  try {
+    const r = await fetch(`${API_BASE}/api/shop/gift-options`);
+    if (!r.ok) throw new Error('Failed to load gift options');
+    return await r.json();
+  } catch {
+    return { occasions: [...GIFT_OCCASIONS], types: [...GIFT_TYPES] };
+  }
 }
 
 export async function findGifts(query: GiftQuery): Promise<GiftMatch[]> {

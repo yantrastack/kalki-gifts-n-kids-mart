@@ -262,6 +262,43 @@ export const en = {
     videoUnavailable: 'Video unavailable',
   },
 
+  // Extra sections in the Add product popup and the product Gifting tab.
+  productForm: {
+    customize: 'Customize',
+    hideCustomize: 'Hide customization',
+    publishing: 'Publishing…',
+    mediaTitle: 'Photos & videos',
+    mediaHelp:
+      'Shown to customers in the storefront app. The first item is the cover. Images (JPG/PNG/WebP/GIF) and videos (MP4/MOV/WebM), up to 50 MB each.',
+    addFiles: 'Add photos or videos',
+    cover: 'Cover',
+    video: 'Video',
+    removeFile: 'Remove file',
+    unsupportedFile: '{name} is not a supported image or video',
+    fileTooLarge: '{name} is larger than 50 MB',
+    mediaFailed: 'Product created, but uploading its photos/videos failed: {error}',
+    giftTitle: 'Gift finder details',
+    giftHelp:
+      'Tag this product so customers can discover it with Find a gift in the storefront. Leave everything empty if it isn’t a gift item.',
+    occasions: 'Occasions',
+    recipients: 'Who it suits',
+    giftType: 'Gift type',
+    ageFrom: 'Age from',
+    ageTo: 'Age to',
+    ageFromPlaceholder: 'e.g. 3',
+    ageToPlaceholder: 'e.g. 12',
+    interests: 'Interests (comma separated)',
+    interestsPlaceholder: 'music, sports, cooking, reading',
+    addOccasion: 'Add an occasion',
+    addGiftType: 'Add a gift type',
+    newOptionPlaceholder: 'Type a new word',
+    addOption: 'Add',
+    cancelOption: 'Cancel',
+    optionExists: '“{name}” already exists',
+    optionNoComma: 'Commas aren’t allowed',
+    removeOption: 'Remove {name}',
+  },
+
   // Delete-product confirmation on the Products page.
   productDelete: {
     title: 'Delete product?',
