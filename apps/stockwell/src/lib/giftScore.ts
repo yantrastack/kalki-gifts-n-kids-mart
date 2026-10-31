@@ -7,9 +7,10 @@
  *     - availability: in stock (the route also drops non-public products)
  *     - budget: minPrice <= price <= maxPrice (inclusive)
  *     - recipient: a product tagged for other recipients only (not the chosen one, not
- *       "anyone") is excluded. Untagged products are kept. "anyone" = no preference.
+ *       "anyone") is excluded. Untagged products are kept. "anyone" = no preference, and so
+ *       is an unknown recipient value (recipients are a fixed list).
  *     - age: a product whose tagged age range excludes the age is excluded. Products with
- *       no age tags are kept.
+ *       no age tags, or an impossible range (min above max), are kept.
  *   Scoring signals (rank the rest):
  *     occasion +30 · recipient exact +20 / "anyone"-tagged +8 · gift type +25 (any of the
  *     selected types; OR, flat, so tagging many types earns nothing extra) · age in range +15
@@ -32,7 +33,7 @@ import type {
   GiftRelaxed,
   ShopProduct,
 } from '@stockwell/shared';
-import { csvToList, parseGiftAge } from '@stockwell/shared';
+import { GIFT_RECIPIENTS, csvToList, parseGiftAge } from '@stockwell/shared';
 
 export const MAX_MATCHES = 30;
 export const MAX_ALTERNATIVES = 10;
@@ -91,10 +92,12 @@ export function singular(w: string): string {
 
 /**
  * Split text into words in any script. Letters, combining marks (Telugu vowel signs are
- * marks) and digits form words; 2-letter words ("tv") are kept.
+ * marks) and digits form words; 2-letter words ("tv") are kept. Text is NFC-normalised so
+ * the same Telugu word typed as composed or decomposed characters matches.
  */
 export function words(s: string): string[] {
   return s
+    .normalize('NFC')
     .toLowerCase()
     .split(/[^\p{L}\p{M}\p{N}]+/u)
     .filter((w) => w.length >= 2 && !STOPWORDS.has(w));
@@ -124,7 +127,10 @@ export function parseGiftCriteria(q: URLSearchParams): GiftCriteria {
   const recipient = q.get('recipient')?.trim().toLowerCase() || '';
   const c: GiftCriteria = {
     occasion: q.get('occasion')?.trim().toLowerCase() || '',
-    recipient: recipient === 'anyone' ? '' : recipient,
+    recipient:
+      recipient !== 'anyone' && (GIFT_RECIPIENTS as readonly string[]).includes(recipient)
+        ? recipient
+        : '',
     age: parseGiftAge(q.get('age')),
     types: [...new Set(csvToList(q.get('types')))],
     likes: parseLikes(q.get('likes') || ''),
@@ -167,7 +173,10 @@ export function scoreGift(p: ShopProduct, c: GiftCriteria, order = 0): Scored | 
   ) {
     return null;
   }
-  const hasAgeRange = g.ageMin !== null || g.ageMax !== null;
+  // An impossible range (min above max) is bad data, not a reason to hide the product.
+  const hasAgeRange =
+    (g.ageMin !== null || g.ageMax !== null) &&
+    !(g.ageMin !== null && g.ageMax !== null && g.ageMin > g.ageMax);
   const ageFits =
     c.age !== null && hasAgeRange && c.age >= (g.ageMin ?? 0) && c.age <= (g.ageMax ?? Infinity);
   if (c.age !== null && hasAgeRange && !ageFits) return null;
