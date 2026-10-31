@@ -22,6 +22,33 @@ const COMPANY = [
   { key: 'lowStockThreshold', label: 'Low-stock threshold (units)', type: 'number' },
 ];
 
+// Defined at module level on purpose: a component declared inside SettingsPage is a new
+// type on every render, so React would replace the <input> (and drop focus) on each keystroke.
+function Field({
+  f,
+  value,
+  disabled,
+  onChange,
+}: {
+  f: { key: string; label: string; type: string };
+  value: string;
+  disabled: boolean;
+  onChange: (key: string, value: string) => void;
+}) {
+  return (
+    <label className="field">
+      <span>{f.label}</span>
+      <input
+        className="input"
+        type={f.type}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(f.key, e.target.value)}
+      />
+    </label>
+  );
+}
+
 export default function SettingsPage() {
   const { useToast } = UI;
   const { isAdmin } = useUser();
@@ -52,19 +79,6 @@ export default function SettingsPage() {
       setSaving(false);
     }
   };
-
-  const Field = ({ f }: any) => (
-    <label className="field">
-      <span>{f.label}</span>
-      <input
-        className="input"
-        type={f.type}
-        value={values[f.key] ?? ''}
-        disabled={!isAdmin}
-        onChange={(e) => set(f.key, e.target.value)}
-      />
-    </label>
-  );
 
   const accent = values.accentColor || '#9a3a3a';
 
@@ -138,7 +152,13 @@ export default function SettingsPage() {
               </div>
             </label>
             {BRANDING.map((f) => (
-              <Field key={f.key} f={f} />
+              <Field
+                key={f.key}
+                f={f}
+                value={values[f.key] ?? ''}
+                disabled={!isAdmin}
+                onChange={set}
+              />
             ))}
           </div>
         </div>
@@ -152,7 +172,13 @@ export default function SettingsPage() {
           </div>
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {COMPANY.map((f) => (
-              <Field key={f.key} f={f} />
+              <Field
+                key={f.key}
+                f={f}
+                value={values[f.key] ?? ''}
+                disabled={!isAdmin}
+                onChange={set}
+              />
             ))}
           </div>
         </div>
