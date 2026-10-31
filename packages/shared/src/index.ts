@@ -90,6 +90,53 @@ export const giftTagKey = (raw: string): string => raw.trim().toLowerCase().repl
 /** Readable text for a stored key when no translation exists ("raksha-bandhan" → "raksha bandhan"). */
 export const giftTagLabel = (key: string): string => key.replace(/-/g, ' ');
 
+/**
+ * Budget presets for the gift finder, sized to a local gift shop's catalog.
+ * Each bucket includes its lower bound and excludes its upper bound
+ * (`min <= price < below`), so a price on a boundary belongs to exactly one
+ * bucket: ₹500 is in "500-1000", ₹1,000 in "1000-2500", ₹2,500 in "above-2500".
+ */
+export const GIFT_BUDGETS = ['under-500', '500-1000', '1000-2500', 'above-2500'] as const;
+export type GiftBudget = (typeof GIFT_BUDGETS)[number];
+
+export const GIFT_BUDGET_BOUNDS: Record<GiftBudget, { min: number | null; below: number | null }> =
+  {
+    'under-500': { min: null, below: 500 },
+    '500-1000': { min: 500, below: 1000 },
+    '1000-2500': { min: 1000, below: 2500 },
+    'above-2500': { min: 2500, below: null },
+  };
+
+/**
+ * The GiftQuery price range for a preset. The API's `maxPrice` is inclusive and
+ * prices are stored to the paisa, so an exclusive upper bound becomes `below - 0.01`.
+ */
+export const budgetToPriceRange = (
+  budget: GiftBudget,
+): Pick<GiftQuery, 'minPrice' | 'maxPrice'> => {
+  const { min, below } = GIFT_BUDGET_BOUNDS[budget];
+  const range: Pick<GiftQuery, 'minPrice' | 'maxPrice'> = {};
+  if (min !== null) range.minPrice = min;
+  if (below !== null) range.maxPrice = Math.round((below - 0.01) * 100) / 100;
+  return range;
+};
+
+/** The single preset a price falls into. */
+export const budgetForPrice = (price: number): GiftBudget =>
+  GIFT_BUDGETS.find((b) => {
+    const { min, below } = GIFT_BUDGET_BOUNDS[b];
+    return (min === null || price >= min) && (below === null || price < below);
+  }) ?? 'above-2500';
+
+/** GET /api/shop/gift-finder/budgets: in-stock product count per preset. */
+export type GiftBudgetCounts = Record<GiftBudget, number>;
+
+export const countByBudget = (prices: number[]): GiftBudgetCounts => {
+  const counts = Object.fromEntries(GIFT_BUDGETS.map((b) => [b, 0])) as GiftBudgetCounts;
+  for (const p of prices) counts[budgetForPrice(p)]++;
+  return counts;
+};
+
 /** Gift attributes attached to a ShopProduct (empty arrays = not tagged for gifting). */
 export type GiftAttributes = {
   occasions: string[];
@@ -192,11 +239,15 @@ export const DEFAULT_BRAND: ShopBrand = {
 
 /**
  * Format an amount with the shop's currency symbol using Indian digit grouping
- * (lakh/crore), e.g. money("₹", 125000) → "₹1,25,000.00".
+ * (lakh/crore), e.g. money("₹", 125000) → "₹1,25,000.00". Pass `fractionDigits = 0`
+ * for whole-rupee labels such as budget chips ("₹2,500").
  */
-export const money = (currency: string, amount: number): string =>
+export const money = (currency: string, amount: number, fractionDigits = 2): string =>
   currency +
-  (amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  (amount ?? 0).toLocaleString('en-IN', {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
 
 /** Up to two initials from a name, for avatar/thumbnail placeholders. */
 export const initials = (name: string): string =>
