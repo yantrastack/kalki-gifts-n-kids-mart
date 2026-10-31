@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
+  AppState,
   View,
   Text,
   Pressable,
@@ -86,6 +87,8 @@ function Shop() {
   const [productFrom, setProductFrom] = useState<Screen>('home'); // where "back" from a product goes
   const [cart, setCart] = useState<CartItem[]>([]);
 
+  const lastLoad = useRef(Date.now());
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
@@ -93,6 +96,7 @@ function Shop() {
       const [b, p] = await Promise.all([getBrand(), getProducts()]);
       setBrand(b);
       setProducts(p);
+      lastLoad.current = Date.now();
     } catch {
       setError(true);
     } finally {
@@ -102,6 +106,23 @@ function Shop() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Products added or activated in the admin show up without reopening the app: when it
+  // comes back to the foreground, reload quietly (no spinner) — at most every 30 seconds.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async (state) => {
+      if (state !== 'active' || Date.now() - lastLoad.current < 30_000) return;
+      lastLoad.current = Date.now();
+      try {
+        const [b, p] = await Promise.all([getBrand(), getProducts()]);
+        setBrand(b);
+        setProducts(p);
+      } catch {
+        /* keep showing what we have */
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const theme = useMemo(() => buildTheme(brand?.accentColor || '#2f9e8f'), [brand?.accentColor]);
   const currency = brand?.currency ?? '₹';

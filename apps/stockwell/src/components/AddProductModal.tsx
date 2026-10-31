@@ -12,12 +12,15 @@ import { useI18n } from '@/i18n';
 // With `customizable`, a Customize button reveals photo/video and Gift Finder sections:
 // `onSubmit(form, files)` then also gets the gift tags (in `form`) and the chosen files,
 // which the parent uploads once the product exists.
+// With `draftable`, the footer offers "Save as draft" next to "Publish product" and
+// `onSubmit` gets `{ activate }` as its third argument (true = publish, false = draft).
 export default function AddProductModal({
   open,
   onClose,
   onSubmit,
   defaults,
   customizable = false,
+  draftable = false,
 }: any) {
   const { t } = useI18n();
   const empty = {
@@ -62,23 +65,23 @@ export default function AddProductModal({
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
   const patchGift = (p: Partial<GiftValue>) => setGift((g) => ({ ...g, ...p }));
 
-  const submit = async () => {
+  const submit = async (activate = true) => {
     if (busy) return;
     setBusy(true);
     try {
-      if (!customizable) return await onSubmit(form);
-      await onSubmit(
-        {
-          ...form,
-          giftOccasions: gift.occasions.join(','),
-          giftRecipients: gift.recipients.join(','),
-          giftTypes: gift.types.join(','),
-          giftInterests: gift.interests,
-          giftAgeMin: gift.ageMin === '' ? null : Number(gift.ageMin),
-          giftAgeMax: gift.ageMax === '' ? null : Number(gift.ageMax),
-        },
-        files,
-      );
+      if (!customizable && !draftable) return await onSubmit(form);
+      const payload = customizable
+        ? {
+            ...form,
+            giftOccasions: gift.occasions.join(','),
+            giftRecipients: gift.recipients.join(','),
+            giftTypes: gift.types.join(','),
+            giftInterests: gift.interests,
+            giftAgeMin: gift.ageMin === '' ? null : Number(gift.ageMin),
+            giftAgeMax: gift.ageMax === '' ? null : Number(gift.ageMax),
+          }
+        : form;
+      await onSubmit(payload, customizable ? files : [], { activate });
     } finally {
       setBusy(false);
     }
@@ -264,9 +267,19 @@ export default function AddProductModal({
         <button className="btn btn-secondary" onClick={onClose}>
           Cancel
         </button>
+        {draftable && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => submit(false)}
+            disabled={!form.name || !form.sku || busy}
+          >
+            {t('productForm.saveDraft')}
+          </button>
+        )}
         <button
           className="btn btn-primary"
-          onClick={submit}
+          onClick={() => submit(true)}
           disabled={!form.name || !form.sku || busy}
         >
           <Icon name="check" size={14} /> {busy ? t('productForm.publishing') : 'Publish product'}

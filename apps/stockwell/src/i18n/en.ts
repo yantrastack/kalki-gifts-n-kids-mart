@@ -297,6 +297,26 @@ export const en = {
     optionExists: '“{name}” already exists',
     optionNoComma: 'Commas aren’t allowed',
     removeOption: 'Remove {name}',
+    saveDraft: 'Save as draft',
+    draftSaved: 'Saved “{name}” as a draft. It isn’t in the customer app until you activate it.',
+    publishedNoStock:
+      'Published “{name}”, but it won’t appear in the customer app until it has stock.',
+    cantPublish: 'Can’t publish yet. Please fill in: {fields}. Or save it as a draft.',
+    missing: {
+      name: 'Product name',
+      sku: 'SKU',
+      category: 'Category',
+      cost: 'Cost',
+      price: 'Retail price',
+      gstRate: 'GST rate',
+      hsnCode: 'HSN code',
+    },
+    activate: 'Activate',
+    activating: 'Activating…',
+    activated: '“{name}” is now active in the customer app.',
+    activatedNoStock: 'Activated “{name}”, but it won’t appear in the customer app until it has stock.',
+    cantActivate: 'Can’t activate “{name}” yet. Missing: {fields}.',
+    activateFailed: 'Could not activate “{name}”. Please try again.',
   },
 
   // Delete-product confirmation on the Products page.

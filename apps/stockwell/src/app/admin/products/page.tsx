@@ -113,13 +113,31 @@ export default function ProductsPage() {
       setRemoving(null);
     }
   };
-  const handleAdd = async (form: any, files: File[] = []) => {
+  // The API answers an incomplete product with `{ error, missing: [...] }` (status 400).
+  const missingFields = (e: any): string | null =>
+    e?.status === 400 && Array.isArray(e.body?.missing) && e.body.missing.length
+      ? e.body.missing.map((f: string) => t(`productForm.missing.${f}`)).join(', ')
+      : null;
+
+  // `activate: true` (Publish product) makes the product live in the customer app; false
+  // (Save as draft) keeps it out until someone activates it.
+  const handleAdd = async (
+    form: any,
+    files: File[] = [],
+    opts: { activate?: boolean } = {},
+  ) => {
+    const activate = opts.activate ?? true;
     let created: any;
     try {
-      created = await jsend('/api/products', 'POST', form);
+      created = await jsend('/api/products', 'POST', { ...form, activate });
     } catch (e: any) {
-      toast({ message: e.message, icon: 'alert', type: 'danger' });
-      return;
+      const fields = missingFields(e);
+      toast({
+        message: fields ? t('productForm.cantPublish', { fields }) : e.message,
+        icon: 'alert',
+        type: 'danger',
+      });
+      return; // keep the popup open so they can fix it or save a draft
     }
     setAddOpen(false);
     // Photos/videos need the new product's id, so they go up right after it is created.
@@ -140,8 +158,38 @@ export default function ProductsPage() {
         return;
       }
     }
-    toast({ message: `Published "${form.name}"`, icon: 'check' });
+    if (!activate) {
+      toast({ message: t('productForm.draftSaved', { name: form.name }), icon: 'check' });
+    } else if (!(Number(form.stock) > 0)) {
+      // Live, but the customer app hides products with no stock.
+      toast({ message: t('productForm.publishedNoStock', { name: form.name }), icon: 'alert' });
+    } else {
+      toast({ message: `Published "${form.name}"`, icon: 'check' });
+    }
     load();
+  };
+
+  // Draft (or discontinued) → active. The API checks the product is complete first.
+  const activateProduct = async (p: any) => {
+    try {
+      const row = await jsend(`/api/products/${p.id}/lifecycle`, 'POST', { to: 'active' });
+      setOpenProduct((cur: any) => (cur?.id === row.id ? row : cur));
+      toast(
+        row.stock > 0
+          ? { message: t('productForm.activated', { name: p.name }), icon: 'check' }
+          : { message: t('productForm.activatedNoStock', { name: p.name }), icon: 'alert' },
+      );
+      load();
+    } catch (e: any) {
+      const fields = missingFields(e);
+      toast({
+        message: fields
+          ? t('productForm.cantActivate', { name: p.name, fields })
+          : t('productForm.activateFailed', { name: p.name }),
+        icon: 'alert',
+        type: 'danger',
+      });
+    }
   };
 
   const SortHeader = ({ k, children, align }: any) => {
@@ -305,16 +353,19 @@ export default function ProductsPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <ProductThumb name={p.name} />
                         <div style={{ minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 500,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              maxWidth: 280,
-                            }}
-                          >
-                            {p.name}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div
+                              style={{
+                                fontWeight: 500,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                maxWidth: 280,
+                              }}
+                            >
+                              {p.name}
+                            </div>
+                            {p.lifecycle && p.lifecycle !== 'active' && statusBadge(p.lifecycle)}
                           </div>
                           <div style={{ fontSize: 'var(--t-xs)', color: 'var(--fg-tertiary)' }}>
                             {p.brand}
@@ -356,6 +407,13 @@ export default function ProductsPage() {
                         }
                       >
                         <MenuItem icon="eye" label="View" onClick={() => setOpenProduct(p)} />
+                        {p.lifecycle && p.lifecycle !== 'active' && (
+                          <MenuItem
+                            icon="check"
+                            label={t('productForm.activate')}
+                            onClick={() => activateProduct(p)}
+                          />
+                        )}
                         {isAdmin && <MenuSep />}
                         {isAdmin && (
                           <MenuItem
@@ -430,7 +488,12 @@ export default function ProductsPage() {
                       {p.sku}
                     </div>
                   </div>
-                  {statusBadge(p.status)}
+                  <div
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}
+                  >
+                    {statusBadge(p.status)}
+                    {p.lifecycle && p.lifecycle !== 'active' && statusBadge(p.lifecycle)}
+                  </div>
                 </div>
                 <div className="spread" style={{ marginTop: 10 }}>
                   <span className="mono" style={{ fontWeight: 600 }}>
@@ -495,6 +558,7 @@ export default function ProductsPage() {
             onDelete={setRemoving}
             deleting={deleting}
             onSaved={load}
+            onActivate={activateProduct}
             isAdmin={isAdmin}
           />
         )}
@@ -557,6 +621,7 @@ export default function ProductsPage() {
         onClose={() => setAddOpen(false)}
         onSubmit={handleAdd}
         customizable
+        draftable
       />
       <ImportProductsModal
         open={importOpen}
@@ -586,11 +651,21 @@ function StockStat({ label, value, color }: any) {
   );
 }
 
-function ProductDetail({ product: p, onClose, onDelete, deleting, onSaved, isAdmin }: any) {
+function ProductDetail({
+  product: p,
+  onClose,
+  onDelete,
+  deleting,
+  onSaved,
+  onActivate,
+  isAdmin,
+}: any) {
+  const { t } = useI18n();
   const { fmt, statusBadge, useToast } = UI;
   const toast = useToast();
   const [tab, setTab] = useState('overview');
   const [adjust, setAdjust] = useState('');
+  const [activating, setActivating] = useState(false);
 
   const applyAdjust = async () => {
     const qty = parseInt(adjust, 10);
@@ -634,11 +709,30 @@ function ProductDetail({ product: p, onClose, onDelete, deleting, onSaved, isAdm
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <h3 style={{ margin: 0, fontSize: 'var(--t-lg)', fontWeight: 600 }}>{p.name}</h3>
             {statusBadge(p.status)}
+            {p.lifecycle && p.lifecycle !== 'active' && statusBadge(p.lifecycle)}
           </div>
           <div className="muted tiny mono" style={{ marginTop: 4 }}>
             {p.sku} · {p.barcode}
           </div>
         </div>
+        {p.lifecycle && p.lifecycle !== 'active' && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            disabled={activating}
+            onClick={async () => {
+              setActivating(true);
+              try {
+                await onActivate(p);
+              } finally {
+                setActivating(false);
+              }
+            }}
+          >
+            <Icon name="check" size={12} />{' '}
+            {activating ? t('productForm.activating') : t('productForm.activate')}
+          </button>
+        )}
         <button className="icon-btn" onClick={onClose}>
           <Icon name="x" size={16} />
         </button>
