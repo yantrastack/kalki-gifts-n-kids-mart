@@ -33,6 +33,7 @@ export const en = {
 
   card: {
     onlyLeft: 'Only {count} left',
+    addToCart: 'Add {name} to cart',
   },
 
   product: {

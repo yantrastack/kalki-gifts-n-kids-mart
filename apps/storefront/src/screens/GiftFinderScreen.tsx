@@ -362,7 +362,8 @@ export default function GiftFinderScreen({
           {pills.length > 0 && (
             <View
               style={[styles.wrapRow, { marginTop: 12 }]}
-              accessibilityLabel={t('gift.yourAnswers')}
+              role="group"
+              aria-label={t('gift.yourAnswers')}
             >
               {pills.map((p) => (
                 <FilterPill
@@ -676,8 +677,8 @@ function Chip({
         styles.chip,
         {
           borderRadius: theme.r.pill,
-          backgroundColor: on ? theme.accent : disabled ? theme.muted : theme.card,
-          borderColor: on ? theme.accent : theme.border,
+          backgroundColor: on ? theme.accentInk : disabled ? theme.muted : theme.card,
+          borderColor: on ? theme.accentInk : theme.border,
           borderStyle: disabled ? 'dashed' : 'solid',
         },
         pressed && { transform: [{ scale: 0.97 }] },

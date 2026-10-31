@@ -49,6 +49,8 @@ export default function ProductCard({
             style={StyleSheet.absoluteFill}
             contentFit="cover"
             transition={200}
+            // expo-image on web only turns accessibilityLabel (not alt) into the <img alt>.
+            accessibilityLabel={product.name}
             onError={() => setCoverFailed(true)}
           />
         ) : (
@@ -78,6 +80,8 @@ export default function ProductCard({
         <Pressable
           onPress={onAdd}
           hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={t('card.addToCart', { name: product.name })}
           style={({ pressed }) => [
             styles.add,
             { backgroundColor: theme.accent },
