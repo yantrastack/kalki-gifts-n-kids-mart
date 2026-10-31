@@ -7,7 +7,6 @@ import {
   FlatList,
   ActivityIndicator,
   ScrollView,
-  useWindowDimensions,
   type ViewToken,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -16,6 +15,7 @@ import { Feather } from '@expo/vector-icons';
 import type { FeedProduct } from '@stockwell/shared';
 import { getFeed, mediaUrl, recordEvent, type Product } from '../api';
 import { useI18n } from '../i18n';
+import { useAppWidth } from '../layout';
 import { type Theme, thumbColor, initials, money } from '../theme';
 
 const compact = (n: number) =>
@@ -64,7 +64,7 @@ export default function ReelsScreen({
   onShare: (p: Product) => Promise<boolean> | boolean;
 }) {
   const { t } = useI18n();
-  const { width } = useWindowDimensions();
+  const width = useAppWidth();
   const [h, setH] = useState(0);
   const [items, setItems] = useState<FeedProduct[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
