@@ -122,10 +122,14 @@ Demo logins (password `stockwell123`): `admin@stockwell.app` (admin),
   gift types, interests) → stored as CSV columns on `products`.
 - Storefront **Find a gift** screen (`src/screens/GiftFinderScreen.tsx`) posts a
   `GiftQuery` to `GET /api/shop/gift-finder`.
-- Ranking is **rule-based scoring on admin tags** (predictable, no API key):
-  occasion +30, gift type +25, recipient +20 (`anyone` +8), age overlap +15,
-  each interest/keyword hit +10 (capped), budget is a hard filter. See the route
-  handler's header comment. An LLM/embedding reranker can layer on the same
+- Ranking is **rule-based scoring on admin tags** (predictable, no API key), in the
+  pure, unit-tested `apps/stockwell/src/lib/giftScore.ts`. Stock, budget, recipient
+  and age are **hard filters** (recipient `anyone` = no preference; untagged products
+  are kept). Occasion +30, gift type +25 (OR across selected types), recipient +20
+  (`anyone`-tagged +8), age in range +15, each interest word +10 (capped; any script,
+  plurals folded) rank the rest. The response is a `GiftFinderResponse`: `matches`,
+  labelled `alternatives` + `relaxed` when matches are few, and in-stock `facets`.
+  min > max price is a 400. An LLM/embedding reranker can layer on the same
   `GiftQuery` later.
 - **Occasions and gift types are dynamic**: the built-in lists in `@stockwell/shared`
   (`GIFT_OCCASIONS`, `GIFT_TYPES`) plus any word an admin adds with the **+** on the gift

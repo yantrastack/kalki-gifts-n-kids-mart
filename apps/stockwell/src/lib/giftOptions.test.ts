@@ -67,6 +67,11 @@ describe('getGiftOptions', () => {
     expect(o.types.slice(GIFT_TYPES.length)).toEqual(['board-game']);
   });
 
+  it('counts in-stock products per gift type for customers only', async () => {
+    expect((await getGiftOptions({ publicOnly: true })).typeCounts).toEqual({ 'board-game': 1 });
+    expect((await getGiftOptions({ publicOnly: false })).typeCounts).toBeUndefined();
+  });
+
   it('never repeats a built-in choice', async () => {
     const o = await getGiftOptions({ publicOnly: false });
     expect(o.occasions.filter((x: string) => x === 'birthday')).toHaveLength(1);

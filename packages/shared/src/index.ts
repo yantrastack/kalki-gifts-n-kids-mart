@@ -82,7 +82,15 @@ export const GIFT_TYPES = [
  * add their own words, which are stored as plain keys on products and offered back to
  * everyone (GET /api/gift-options for admin, GET /api/shop/gift-options for the storefront).
  */
-export type GiftOptions = { occasions: string[]; types: string[] };
+export type GiftOptions = {
+  occasions: string[];
+  types: string[];
+  /**
+   * Storefront only: how many sellable (active, in-stock) products carry each gift type, so
+   * the Find a gift form can disable types that would return nothing. Missing = unknown.
+   */
+  typeCounts?: Record<string, number>;
+};
 
 /** Turn a typed tag ("Raksha Bandhan") into its stored key ("raksha-bandhan"). */
 export const giftTagKey = (raw: string): string => raw.trim().toLowerCase().replace(/\s+/g, '-');
@@ -181,6 +189,34 @@ export type GiftMatch = {
   product: ShopProduct;
   score: number;
   reasons: GiftReason[];
+};
+
+/** Preference answers the gift finder may set aside to suggest alternatives. */
+export type GiftRelaxed = 'types' | 'occasion' | 'interests';
+
+/**
+ * GET /api/shop/gift-finder response.
+ *   - `matches`: pass every hard filter (stock, budget, recipient, age) and fit the answers.
+ *   - `alternatives`: only when matches are few. Still pass every hard filter, but ignore the
+ *     answers listed in `relaxed`. Recipient, age and budget are never relaxed.
+ *   - `facets.types`: in-stock product count per gift type.
+ */
+export type GiftFinderResponse = {
+  matches: GiftMatch[];
+  alternatives: GiftMatch[];
+  relaxed: GiftRelaxed[];
+  facets: { types: Record<string, number> };
+};
+
+/** Oldest age the gift finder accepts. */
+export const GIFT_AGE_MAX = 120;
+
+/** A typed age as whole years 0–120, or null when it is empty or not a valid age. */
+export const parseGiftAge = (raw: string | number | null | undefined): number | null => {
+  const s = String(raw ?? '').trim();
+  if (!/^\d{1,3}$/.test(s)) return null;
+  const n = Number(s);
+  return n <= GIFT_AGE_MAX ? n : null;
 };
 
 /* ----------------------------------------------------- discover feed + events */

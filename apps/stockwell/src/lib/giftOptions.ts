@@ -22,10 +22,14 @@ export async function getGiftOptions({
 
   const occasions = new Set<string>();
   const types = new Set<string>();
+  const typeCounts: Record<string, number> = {};
   for (const p of rows) {
     if (publicOnly && !(isPublic(p as any) && p.stock > 0)) continue;
     for (const o of csvToList(p.occasions)) occasions.add(o);
-    for (const t of csvToList(p.types)) types.add(t);
+    for (const t of new Set(csvToList(p.types))) {
+      types.add(t);
+      typeCounts[t] = (typeCounts[t] ?? 0) + 1;
+    }
   }
 
   const withCustom = (builtin: readonly string[], found: Set<string>) => [
@@ -35,5 +39,7 @@ export async function getGiftOptions({
   return {
     occasions: withCustom(GIFT_OCCASIONS, occasions),
     types: withCustom(GIFT_TYPES, types),
+    // Counts only mean "in stock" when non-sellable products were skipped above.
+    ...(publicOnly ? { typeCounts } : {}),
   };
 }
