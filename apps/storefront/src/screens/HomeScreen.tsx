@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import ProductCard from '../components/ProductCard';
 import Skeleton from '../components/Skeleton';
+import ThemedInput, { FOCUS_RING } from '../components/ThemedInput';
 import { useI18n } from '../i18n';
 import type { Theme } from '../theme';
 import type { Product } from '../api';
@@ -61,27 +62,33 @@ export default function HomeScreen({
         </View>
         <Feather name="chevron-right" size={18} color={theme.onAccent} />
       </Pressable>
-      <View
-        style={[
+      <ThemedInput
+        theme={theme}
+        containerStyle={[
           styles.search,
           { backgroundColor: theme.card, borderRadius: theme.r.pill },
           theme.shadow,
         ]}
-      >
-        <Feather name="search" size={17} color={theme.faint} style={{ marginRight: 8 }} />
-        <TextInput
-          placeholder={t('common.search')}
-          placeholderTextColor={theme.faint}
-          value={query}
-          onChangeText={setQuery}
-          style={{ flex: 1, color: theme.text, paddingVertical: 12, fontSize: 15 }}
-        />
-        {query.length > 0 && (
-          <Pressable onPress={() => setQuery('')} hitSlop={10}>
-            <Feather name="x" size={16} color={theme.faint} />
-          </Pressable>
-        )}
-      </View>
+        inputStyle={{ color: theme.text, paddingVertical: 12 - FOCUS_RING, fontSize: 15 }}
+        left={<Feather name="search" size={17} color={theme.faint} style={{ marginRight: 8 }} />}
+        right={
+          query.length > 0 && (
+            <Pressable
+              onPress={() => setQuery('')}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.clearSearch')}
+            >
+              <Feather name="x" size={16} color={theme.faint} />
+            </Pressable>
+          )
+        }
+        placeholder={t('common.search')}
+        placeholderTextColor={theme.faint}
+        accessibilityLabel={t('common.search')}
+        value={query}
+        onChangeText={setQuery}
+      />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -191,7 +198,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  search: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
+  // Padding is reduced by the reserved focus-ring border so the pill keeps its size.
+  search: { paddingHorizontal: 16 - FOCUS_RING },
   chip: { borderWidth: 1, paddingHorizontal: 16, paddingVertical: 9 },
   empty: { alignItems: 'center', marginTop: 60 },
 });

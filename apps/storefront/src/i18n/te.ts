@@ -7,6 +7,7 @@ export const te: Dict = {
   common: {
     retry: 'మళ్లీ ప్రయత్నించండి',
     search: 'ఉత్పత్తులను వెతకండి',
+    clearSearch: 'శోధనను తొలగించండి',
     all: 'అన్నీ',
     viewCart: 'కార్ట్ చూడండి',
   },
