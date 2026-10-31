@@ -29,6 +29,39 @@ describe('POST /api/products', () => {
     expect(body.lifecycle).toBe('draft');
   });
 
+  const post = (body: object) =>
+    POST(
+      new NextRequest('http://localhost/api/products', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    );
+  const complete = { category: 'Gifts', price: 500, cost: 300, gstRate: 18, hsnCode: '8518' };
+
+  it('creates an active product when activate is true and it is complete', async () => {
+    const res = await post({ ...complete, name: 'Live', sku: 'ACT-1', stock: 5, activate: true });
+    const body = await res.json();
+    expect(res.status).toBe(201);
+    expect(body.lifecycle).toBe('active');
+  });
+
+  it('refuses to activate an incomplete product and lists what is missing', async () => {
+    const res = await post({ name: 'Half done', sku: 'ACT-2', stock: 5, activate: true });
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.error).toBe('Incomplete product');
+    expect(body.missing).toEqual(
+      expect.arrayContaining(['category', 'cost', 'price', 'hsnCode']),
+    );
+  });
+
+  it('keeps an incomplete product as a draft when activate is false', async () => {
+    const res = await post({ name: 'Later', sku: 'ACT-3', activate: false });
+    const body = await res.json();
+    expect(res.status).toBe(201);
+    expect(body.lifecycle).toBe('draft');
+  });
+
   it('stores gift tags sent with the new product, including custom ones', async () => {
     const req = new NextRequest('http://localhost/api/products', {
       method: 'POST',

@@ -34,6 +34,7 @@ const STATUS_MAP: Record<string, { cls: string; label: string }> = {
   out: { cls: 'badge-danger', label: 'Out of stock' },
   archived: { cls: '', label: 'Archived' },
   draft: { cls: '', label: 'Draft' },
+  discontinued: { cls: 'badge-danger', label: 'Discontinued' },
   approved: { cls: 'badge-info', label: 'Approved' },
   shipped: { cls: 'badge-accent', label: 'Shipped' },
   received: { cls: 'badge-success', label: 'Received' },
