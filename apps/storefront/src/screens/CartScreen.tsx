@@ -1,9 +1,9 @@
 import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
-import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { useI18n } from '../i18n';
-import { type Theme, money, thumbColor, initials } from '../theme';
+import { type Theme, money } from '../theme';
 import { type Product, type Brand, mediaUrl } from '../api';
+import ProductImage from '../components/ProductImage';
 
 export type CartItem = { product: Product; qty: number };
 
@@ -65,7 +65,7 @@ export default function CartScreen({
         keyExtractor={(i) => i.product.id}
         contentContainerStyle={{ padding: 14, paddingBottom: 16 }}
         renderItem={({ item }) => {
-          const cover = item.product.media.find((m) => m.type === 'image') ?? item.product.media[0];
+          const cover = item.product.media.find((m) => m.type === 'image');
           return (
             <View
               style={[
@@ -74,27 +74,15 @@ export default function CartScreen({
                 theme.shadow,
               ]}
             >
-              <View
-                style={[
-                  styles.thumb,
-                  {
-                    borderRadius: theme.r.md,
-                    backgroundColor: cover ? theme.muted : thumbColor(item.product.name),
-                  },
-                ]}
-              >
-                {cover ? (
-                  <Image
-                    source={{ uri: mediaUrl(cover.url) }}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    transition={150}
-                  />
-                ) : (
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
-                    {initials(item.product.name)}
-                  </Text>
-                )}
+              <View style={[styles.thumb, { borderRadius: theme.r.md }]}>
+                <ProductImage
+                  uri={cover ? mediaUrl(cover.url) : null}
+                  label={t('card.photo', { name: item.product.name })}
+                  theme={theme}
+                  style={StyleSheet.absoluteFill}
+                  transition={150}
+                  iconSize={20}
+                />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={[styles.name, { color: theme.text }]} numberOfLines={2}>

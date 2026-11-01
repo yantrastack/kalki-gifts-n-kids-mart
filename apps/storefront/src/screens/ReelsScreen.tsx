@@ -9,14 +9,18 @@ import {
   ScrollView,
   type ViewToken,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Feather } from '@expo/vector-icons';
 import type { FeedProduct } from '@stockwell/shared';
 import { getFeed, mediaUrl, recordEvent, type Product } from '../api';
 import { useI18n } from '../i18n';
 import { useAppWidth } from '../layout';
-import { type Theme, thumbColor, initials, money } from '../theme';
+import { type Theme, money } from '../theme';
+import ProductImage, { ImageFallback } from '../components/ProductImage';
+import ProductBadge from '../components/ProductBadge';
+
+/** Placeholder tone on the black Discover feed (the light app tone would glare here). */
+const REEL_FALLBACK = '#24211D';
 
 const compact = (n: number) =>
   n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
@@ -314,29 +318,23 @@ function Reel({
                 muted={muted}
               />
             ) : (
-              <Image
-                source={{ uri: mediaUrl(item.url) }}
-                style={{ width, height }}
-                contentFit="cover"
-                transition={200}
+              <ProductImage
+                uri={mediaUrl(item.url)}
+                label={t('card.photo', { name: product.name })}
+                theme={theme}
+                style={{ width, height, backgroundColor: REEL_FALLBACK }}
+                priority={active && index === 0}
+                iconSize={56}
               />
             )
           }
         />
       ) : (
-        <View
-          style={{
-            width,
-            height,
-            backgroundColor: thumbColor(product.name),
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: '#fff', fontSize: 64, fontWeight: '800' }}>
-            {initials(product.name)}
-          </Text>
-        </View>
+        <ImageFallback
+          theme={theme}
+          iconSize={56}
+          style={{ width, height, backgroundColor: REEL_FALLBACK }}
+        />
       )}
 
       {/* Scrims for legibility */}
@@ -376,11 +374,7 @@ function Reel({
 
       {/* Bottom info panel */}
       <View style={styles.info}>
-        {product.tag ? (
-          <View style={[styles.tagPill, { backgroundColor: theme.accent }]}>
-            <Text style={styles.tagText}>{product.tag}</Text>
-          </View>
-        ) : null}
+        <ProductBadge tag={product.tag} theme={theme} style={styles.tagPill} />
         <Pressable onPress={onOpen}>
           <Text style={styles.name} numberOfLines={2}>
             {product.name}
@@ -425,26 +419,13 @@ function Reel({
             >
               {product.related.map((r) => (
                 <Pressable key={r.id} onPress={() => onRelated(r.id)} style={styles.relCard}>
-                  {r.thumb ? (
-                    <Image
-                      source={{ uri: mediaUrl(r.thumb) }}
-                      style={styles.relThumb}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.relThumb,
-                        {
-                          backgroundColor: thumbColor(r.name),
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        },
-                      ]}
-                    >
-                      <Text style={{ color: '#fff', fontWeight: '700' }}>{initials(r.name)}</Text>
-                    </View>
-                  )}
+                  <ProductImage
+                    uri={r.thumb ? mediaUrl(r.thumb) : null}
+                    label={t('card.photo', { name: r.name })}
+                    theme={theme}
+                    style={styles.relThumb}
+                    iconSize={22}
+                  />
                   <Text style={styles.relPrice}>{money(currency, r.price)}</Text>
                 </Pressable>
               ))}
@@ -586,14 +567,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
   },
   info: { position: 'absolute', left: 16, right: 78, bottom: 28, zIndex: 15 },
-  tagPill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 999,
-    marginBottom: 8,
-  },
-  tagText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  tagPill: { marginBottom: 8 },
   name: {
     color: '#fff',
     fontSize: 20,

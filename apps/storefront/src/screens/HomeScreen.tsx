@@ -158,13 +158,15 @@ export default function HomeScreen({
       keyExtractor={(p) => p.id}
       contentContainerStyle={{ padding: 8, paddingBottom: 110 }}
       ListHeaderComponent={header}
-      renderItem={({ item }) => (
+      renderItem={({ item, index }) => (
         <ProductCard
           product={item}
           theme={theme}
           currency={currency}
           onPress={() => onOpen(item)}
           onAdd={() => onAdd(item)}
+          // The first two rows are above the fold on phones; the rest lazy-load.
+          priority={index < 4}
         />
       )}
       ListEmptyComponent={
