@@ -1,53 +1,26 @@
 import { useRef, useState } from 'react';
 import { View, Text, FlatList, Pressable, Platform, StyleSheet } from 'react-native';
-import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { useI18n } from '../i18n';
 import VideoPlayer from './VideoPlayer';
-import { type Theme, thumbColor, initials } from '../theme';
+import type { Theme } from '../theme';
+import ProductImage, { ImageFallback } from './ProductImage';
 import { mediaUrl } from '../api';
 import { useAppWidth } from '../layout';
+import { useFocusRing } from './focusRing';
+import { prefersReducedMotion } from './hover';
+import { pageAt, stepIndex } from './gallery';
 import type { ShopMedia } from '@stockwell/shared';
 
-/** Gallery of a product's photos and videos: swipe, arrows (web), tappable dots, counter. */
-function CarouselImage({
-  uri,
-  width,
-  theme,
-  label,
-}: {
-  uri: string;
-  width: number;
-  theme: Theme;
-  label: string;
-}) {
-  const [failed, setFailed] = useState(false);
-  if (failed)
-    return (
-      <View
-        style={{
-          width,
-          height: width,
-          backgroundColor: theme.muted,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Feather name="image" size={28} color={theme.faint} />
-        <Text style={{ color: theme.sub, marginTop: 6 }}>{label}</Text>
-      </View>
-    );
-  return (
-    <Image
-      source={{ uri }}
-      style={{ width, height: width, backgroundColor: theme.muted }}
-      contentFit="cover"
-      transition={250}
-      onError={() => setFailed(true)}
-    />
-  );
-}
+const CALM = prefersReducedMotion();
+const THUMB = 56;
 
+/**
+ * Product gallery: the selected photo or video large, then (with 2+ items) a row of
+ * thumbnails. Swipe, arrow buttons (web), thumbnails and the keyboard (← / → while the
+ * gallery has focus, web) all move the same index, so photo, thumbnail and counter stay
+ * in sync. Screen readers hear "Photo 2 of 3" when it changes.
+ */
 export default function MediaCarousel({
   media,
   productName,
@@ -61,106 +34,208 @@ export default function MediaCarousel({
   const { t } = useI18n();
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList<ShopMedia>>(null);
+  const count = media.length;
 
   const goTo = (i: number) => {
     setIndex(i);
-    listRef.current?.scrollToIndex({ index: i, animated: true });
+    listRef.current?.scrollToIndex({ index: i, animated: !CALM });
   };
-  const showArrows = Platform.OS === 'web' && media.length > 1;
+  const step = (delta: number) => goTo(stepIndex(index, delta, count));
+  const showArrows = Platform.OS === 'web' && count > 1;
 
-  if (!media.length) {
+  if (!count) {
     return (
-      <View
-        style={[
-          styles.fallback,
-          { width, height: width, backgroundColor: thumbColor(productName) },
-        ]}
-      >
-        <Text style={styles.fallbackText}>{initials(productName)}</Text>
-      </View>
+      <ImageFallback
+        theme={theme}
+        iconSize={56}
+        caption={t('card.noPhoto')}
+        style={{ width, height: width }}
+      />
     );
   }
 
-  return (
-    <View>
-      <FlatList
-        ref={listRef}
-        data={media}
-        getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(m) => m.id}
-        onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
-        renderItem={({ item }) =>
-          item.type === 'video' ? (
-            <VideoPlayer uri={mediaUrl(item.url)} width={width} height={width} theme={theme} />
-          ) : (
-            <CarouselImage
-              uri={mediaUrl(item.url)}
-              width={width}
-              theme={theme}
-              label={t('product.imageUnavailable')}
-            />
-          )
+  const position = t('product.imagePosition', { n: index + 1, total: count });
+
+  // Web only: ← / → steps through the gallery while focus is inside it.
+  const keyHandler =
+    Platform.OS === 'web' && count > 1
+      ? {
+          onKeyDown: (e: any) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+              e.preventDefault();
+              step(e.key === 'ArrowLeft' ? -1 : 1);
+            }
+          },
         }
-      />
-      {showArrows && index > 0 && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('product.prevImage')}
-          onPress={() => goTo(index - 1)}
-          style={[styles.arrow, styles.arrowLeft]}
-        >
-          <Feather name="chevron-left" size={22} color={theme.accent} />
-        </Pressable>
-      )}
-      {showArrows && index < media.length - 1 && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('product.nextImage')}
-          onPress={() => goTo(index + 1)}
-          style={[styles.arrow, styles.arrowRight]}
-        >
-          <Feather name="chevron-right" size={22} color={theme.accent} />
-        </Pressable>
-      )}
-      {media.length > 1 && (
-        <>
-          <View style={styles.dots}>
-            {media.map((m, i) => (
-              <Pressable
-                key={m.id}
-                accessibilityRole="button"
-                accessibilityLabel={t('product.goToImage', { n: i + 1 })}
-                hitSlop={8}
-                onPress={() => goTo(i)}
-                style={[
-                  styles.dot,
-                  { backgroundColor: i === index ? theme.accent : 'rgba(255,255,255,0.7)' },
-                  i === index && styles.dotActive,
-                ]}
+      : null;
+
+  return (
+    <View {...(keyHandler as any)}>
+      <View>
+        <FlatList
+          ref={listRef}
+          data={media}
+          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(m) => m.id}
+          // onScroll (not onMomentumScrollEnd): mobile web never fires momentum events.
+          scrollEventThrottle={32}
+          onScroll={(e) => {
+            const i = pageAt(e.nativeEvent.contentOffset.x, width, count);
+            if (i !== index) setIndex(i);
+          }}
+          renderItem={({ item, index: i }) =>
+            item.type === 'video' ? (
+              <VideoPlayer uri={mediaUrl(item.url)} width={width} height={width} theme={theme} />
+            ) : (
+              <ProductImage
+                uri={mediaUrl(item.url)}
+                label={
+                  count > 1
+                    ? `${t('card.photo', { name: productName })}, ${t('product.imagePosition', { n: i + 1, total: count })}`
+                    : t('card.photo', { name: productName })
+                }
+                theme={theme}
+                style={{ width, height: width }}
+                // The gallery is the top of the product page: load the first photo first.
+                priority={i === 0}
+                transition={CALM ? 0 : 250}
+                iconSize={56}
+                caption={t('product.imageUnavailable')}
               />
-            ))}
-          </View>
+            )
+          }
+        />
+        {showArrows && (
+          <>
+            <Arrow
+              dir="left"
+              theme={theme}
+              label={t('product.prevImage')}
+              onPress={() => step(-1)}
+            />
+            <Arrow
+              dir="right"
+              theme={theme}
+              label={t('product.nextImage')}
+              onPress={() => step(1)}
+            />
+          </>
+        )}
+        {count > 1 && (
           <View style={styles.counter}>
-            <Text style={styles.counterText}>
-              {index + 1} / {media.length}
+            <Text
+              style={styles.counterText}
+              accessibilityLabel={position}
+              accessibilityLiveRegion="polite"
+            >
+              {index + 1} / {count}
             </Text>
           </View>
-        </>
+        )}
+      </View>
+
+      {count > 1 && (
+        <View
+          style={[styles.thumbs, { backgroundColor: theme.bg }]}
+          accessibilityRole={Platform.OS === 'web' ? ('list' as any) : undefined}
+        >
+          {media.map((m, i) => (
+            <Thumb
+              key={m.id}
+              media={m}
+              selected={i === index}
+              theme={theme}
+              label={t('product.goToImage', { n: i + 1, total: count })}
+              onPress={() => goTo(i)}
+            />
+          ))}
+        </View>
       )}
     </View>
   );
 }
 
+function Arrow({
+  dir,
+  theme,
+  label,
+  onPress,
+}: {
+  dir: 'left' | 'right';
+  theme: Theme;
+  label: string;
+  onPress: () => void;
+}) {
+  const ring = useFocusRing(theme, 20);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      {...ring.handlers}
+      style={[styles.arrow, dir === 'left' ? styles.arrowLeft : styles.arrowRight, ring.ring]}
+    >
+      <Feather name={`chevron-${dir}`} size={22} color={theme.accentInk} />
+    </Pressable>
+  );
+}
+
+function Thumb({
+  media,
+  selected,
+  theme,
+  label,
+  onPress,
+}: {
+  media: ShopMedia;
+  selected: boolean;
+  theme: Theme;
+  label: string;
+  onPress: () => void;
+}) {
+  const ring = useFocusRing(theme, 12);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      // Web: aria-current marks the shown photo (aria-selected is not valid on a button).
+      {...({ 'aria-current': selected ? 'true' : undefined } as any)}
+      onPress={onPress}
+      {...ring.handlers}
+      style={[
+        styles.thumb,
+        {
+          borderColor: selected ? theme.accentInk : theme.border,
+          backgroundColor: theme.muted,
+          opacity: selected ? 1 : 0.75,
+        },
+        ring.ring,
+      ]}
+    >
+      {media.type === 'video' ? (
+        <View style={styles.thumbVideo}>
+          <Feather name="play" size={18} color={theme.sub} />
+        </View>
+      ) : (
+        // Decorative: the button's label already says which photo it shows.
+        <ProductImage
+          uri={mediaUrl(media.url)}
+          label=""
+          theme={theme}
+          style={styles.thumbImg}
+          transition={0}
+          iconSize={16}
+        />
+      )}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  fallback: { alignItems: 'center', justifyContent: 'center' },
-  fallbackText: { color: '#fff', fontSize: 64, fontWeight: '800' },
-  // bottom clears the 20px the product sheet overlaps onto the gallery.
-  dots: { position: 'absolute', bottom: 34, alignSelf: 'center', flexDirection: 'row', gap: 6 },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  dotActive: { width: 18 },
   arrow: {
     position: 'absolute',
     top: '50%',
@@ -170,7 +245,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.92)',
   },
   arrowLeft: { left: 12 },
   arrowRight: { right: 12 },
@@ -178,10 +253,27 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   counterText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  // paddingBottom: the product sheet below overlaps the gallery by 20px.
+  thumbs: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    paddingTop: 12,
+    paddingBottom: 32,
+  },
+  thumb: {
+    width: THUMB,
+    height: THUMB,
+    borderRadius: 12,
+    borderWidth: 2,
+    overflow: 'hidden',
+  },
+  thumbImg: { width: '100%', height: '100%' },
+  thumbVideo: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
