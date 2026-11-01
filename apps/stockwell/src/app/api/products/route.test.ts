@@ -55,6 +55,13 @@ describe('POST /api/products', () => {
     );
   });
 
+  it('stores the badge as a translatable code, not display text (YAN-101)', async () => {
+    const res = await post({ name: 'Bear', sku: 'TAG-1', tag: 'Kids favourite' });
+    expect((await res.json()).tag).toBe('kids-favourite');
+    const none = await post({ name: 'Plain', sku: 'TAG-2', tag: '  ' });
+    expect((await none.json()).tag).toBeNull();
+  });
+
   it('keeps an incomplete product as a draft when activate is false', async () => {
     const res = await post({ name: 'Later', sku: 'ACT-3', activate: false });
     const body = await res.json();

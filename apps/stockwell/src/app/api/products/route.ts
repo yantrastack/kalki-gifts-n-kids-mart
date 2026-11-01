@@ -9,7 +9,7 @@ import {
   normaliseSku,
 } from '@/lib/catalog';
 import { like, or, eq, and, desc, sql } from 'drizzle-orm';
-import { csvToList } from '@stockwell/shared';
+import { csvToList, productBadgeKey } from '@stockwell/shared';
 
 // Gift tags arrive as a CSV string (or a list); store them trimmed, lower-cased and de-duplicated.
 const giftCsv = (v: unknown): string | null => {
@@ -109,7 +109,8 @@ export async function POST(req: NextRequest) {
     supplier: body.supplier || null,
     status: deriveStatus(stock),
     lifecycle: activate ? 'active' : 'draft',
-    tag: body.tag || null,
+    // Badge code ("Kids favourite" → "kids-favourite"); the storefront translates it.
+    tag: productBadgeKey(typeof body.tag === 'string' ? body.tag : null),
     hsnCode: body.hsnCode || null,
     gstRate: body.gstRate != null ? Number(body.gstRate) : null,
     giftOccasions: giftCsv(body.giftOccasions),

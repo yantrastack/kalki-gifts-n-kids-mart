@@ -8,6 +8,7 @@ import ImportProductsModal from '@/components/ImportProductsModal';
 import { useI18n } from '@/i18n';
 import { useUser } from '@/components/UserContext';
 import GiftFields, { type GiftValue } from '@/components/GiftFields';
+import { giftTagLabel } from '@stockwell/shared';
 
 export default function ProductsPage() {
   const {
@@ -369,7 +370,7 @@ export default function ProductsPage() {
                           </div>
                           <div style={{ fontSize: 'var(--t-xs)', color: 'var(--fg-tertiary)' }}>
                             {p.brand}
-                            {p.tag ? ` · ${p.tag}` : ''}
+                            {p.tag ? ` · ${giftTagLabel(p.tag)}` : ''}
                           </div>
                         </div>
                       </div>

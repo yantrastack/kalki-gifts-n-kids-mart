@@ -51,9 +51,3 @@ export function buildTheme(accent: string) {
   };
 }
 export type Theme = ReturnType<typeof buildTheme>;
-
-const PALETTE = ['#9a3a3a', '#2c5e8a', '#a8761c', '#2a7d4f', '#6b4e8a', '#8a5a36'];
-export function thumbColor(name: string) {
-  const h = [...name].reduce((a, c) => a + c.charCodeAt(0), 0);
-  return PALETTE[h % PALETTE.length];
-}
