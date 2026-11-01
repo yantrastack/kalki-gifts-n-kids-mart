@@ -34,6 +34,19 @@ export const en = {
   card: {
     onlyLeft: 'Only {count} left',
     addToCart: 'Add {name} to cart',
+    view: 'View {name}, {price}',
+    photo: 'Photo of {name}',
+    noPhoto: 'No photo yet',
+  },
+
+  /** Product badges, keyed by the stored code (PRODUCT_BADGES in @stockwell/shared). */
+  badge: {
+    bestseller: 'Bestseller',
+    'kids-favourite': 'Kids’ favourite',
+    premium: 'Premium',
+    trending: 'Trending',
+    new: 'New',
+    'festive-pick': 'Festive pick',
   },
 
   product: {
@@ -50,7 +63,8 @@ export const en = {
     imageUnavailable: 'Image unavailable',
     prevImage: 'Previous image',
     nextImage: 'Next image',
-    goToImage: 'Go to image {n}',
+    goToImage: 'Show photo {n} of {total}',
+    imagePosition: 'Photo {n} of {total}',
   },
 
   cart: {

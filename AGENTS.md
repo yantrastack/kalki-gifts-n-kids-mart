@@ -113,9 +113,12 @@ Demo logins (password `stockwell123`): `admin@stockwell.app` (admin),
   (`src/components/MediaCarousel.tsx`, `ProductCard.tsx`). Relative URLs are made
   absolute by `mediaUrl()` in `src/api.ts`; absolute (Cloudinary) URLs pass through.
 - **Storage is pluggable** (`src/lib/storage.ts`): local disk by default, or
-  **Cloudinary** (free tier, images + video) when its env vars are set. Committed
-  demo media lives in `public/seed/` and is served statically. See
-  [docs/MEDIA.md](apps/stockwell/docs/MEDIA.md).
+  **Cloudinary** (free tier, images + video) when its env vars are set. Seed media
+  goes in `public/seed/` (served statically), mapped by product ID in
+  `src/db/seedMedia.ts`; **only CC0/owned photos with a row in the MEDIA.md licence
+  record** (YAN-101, test-enforced). Missing/failed images show one shared placeholder
+  (`ProductImage`). Badges (`products.tag`) are translated codes from
+  `PRODUCT_BADGES`. See [docs/MEDIA.md](apps/stockwell/docs/MEDIA.md).
 
 ### Gift Finder
 - Admin tags a product on the **Gifting** tab (occasions, recipients, age range,
