@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/libsql';
 import { createClient } from '@libsql/client';
 import * as schema from './schema';
 import { hashPassword } from '../lib/auth';
+import { seedMediaRows } from './seedMedia';
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -91,8 +92,9 @@ const SUPPLIERS = [
 
 /* ------------------------------------------------------------------- products
  * Gift-shop catalogue. Prices in ₹. Gift attributes (occasions/recipients/age/
- * types/interests) power the storefront Gift Finder. Media is attached below in
- * PRODUCT_MEDIA (real photos + a few short videos live in public/seed/). */
+ * types/interests) power the storefront Gift Finder. `tag` is a badge code from
+ * PRODUCT_BADGES in @stockwell/shared (translated by the storefront). Media is
+ * attached below in PRODUCT_MEDIA. */
 const PRODUCTS = [
   {
     id: 'p1',
@@ -110,7 +112,7 @@ const PRODUCTS = [
     warehouse: 'BLR-STORE',
     supplier: 'Auraluxe Candles',
     status: 'active',
-    tag: 'Bestseller',
+    tag: 'bestseller',
     hsnCode: '3406',
     gstRate: 12,
     giftOccasions: 'birthday,anniversary,housewarming,thank-you',
@@ -188,7 +190,7 @@ const PRODUCTS = [
     warehouse: 'BLR-STORE',
     supplier: 'Kastoori Crafts',
     status: 'active',
-    tag: 'Kids favourite',
+    tag: 'kids-favourite',
     hsnCode: '9503',
     gstRate: 12,
     giftOccasions: 'birthday,valentines,baby-shower',
@@ -214,7 +216,7 @@ const PRODUCTS = [
     warehouse: 'BLR-STORE',
     supplier: 'Cocoa Grove Foods',
     status: 'active',
-    tag: 'Bestseller',
+    tag: 'bestseller',
     hsnCode: '1806',
     gstRate: 18,
     giftOccasions: 'birthday,valentines,anniversary,thank-you,festival',
@@ -266,7 +268,7 @@ const PRODUCTS = [
     warehouse: 'BLR-STORE',
     supplier: 'Mysore Naturals',
     status: 'active',
-    tag: 'Premium',
+    tag: 'premium',
     hsnCode: '3303',
     gstRate: 18,
     giftOccasions: 'valentines,anniversary,birthday',
@@ -344,7 +346,7 @@ const PRODUCTS = [
     warehouse: 'BLR-STORE',
     supplier: 'Glowveda Lights',
     status: 'active',
-    tag: 'Trending',
+    tag: 'trending',
     hsnCode: '9405',
     gstRate: 12,
     giftOccasions: 'housewarming,festival,birthday',
@@ -500,7 +502,7 @@ const PRODUCTS = [
     warehouse: 'BLR-STORE',
     supplier: 'Kastoori Crafts',
     status: 'active',
-    tag: 'New',
+    tag: 'new',
     hsnCode: '7113',
     gstRate: 3,
     giftOccasions: 'valentines,anniversary,birthday,wedding',
@@ -604,7 +606,7 @@ const PRODUCTS = [
     warehouse: 'BLR-STORE',
     supplier: 'Glowveda Lights',
     status: 'active',
-    tag: 'Festive pick',
+    tag: 'festive-pick',
     hsnCode: '9405',
     gstRate: 12,
     giftOccasions: 'festival,housewarming',
@@ -617,31 +619,8 @@ const PRODUCTS = [
 ];
 
 /* ---------------------------------------------------------------- product media
- * Every product has two photos; six featured products also have a short video.
- * Files are committed under apps/stockwell/public/seed/ and served statically. */
-const FEATURED_VIDEO = new Set(['p1', 'p4', 'p5', 'p7', 'p10', 'p16']);
-const PRODUCT_MEDIA = PRODUCTS.flatMap((p) => {
-  const rows: {
-    id: string;
-    productId: string;
-    url: string;
-    type: string;
-    sortOrder: number;
-  }[] = [
-    { id: `${p.id}m1`, productId: p.id, url: `/seed/${p.id}-a.jpg`, type: 'image', sortOrder: 0 },
-    { id: `${p.id}m2`, productId: p.id, url: `/seed/${p.id}-b.jpg`, type: 'image', sortOrder: 1 },
-  ];
-  if (FEATURED_VIDEO.has(p.id)) {
-    rows.push({
-      id: `${p.id}m3`,
-      productId: p.id,
-      url: `/seed/${p.id}-vid.mp4`,
-      type: 'video',
-      sortOrder: 2,
-    });
-  }
-  return rows;
-});
+ * Licensed demo photos, keyed by product ID: see ./seedMedia.ts and docs/MEDIA.md. */
+const PRODUCT_MEDIA = seedMediaRows(PRODUCTS.map((p) => p.id));
 
 /* ------------------------------------------------------------- engagement events
  * Synthetic Discover-reels engagement so the storefront (like/share counts) and
@@ -1219,7 +1198,8 @@ async function seed() {
   // product starts out activated (see YAN-75 — lifecycle is separate from
   // the stock-level `status` field above).
   await db.insert(schema.products).values(PRODUCTS.map((p) => ({ ...p, lifecycle: 'active' })) as any);
-  await db.insert(schema.productMedia).values(PRODUCT_MEDIA as any);
+  // Drizzle rejects an empty insert (e.g. if every seed photo is removed).
+  if (PRODUCT_MEDIA.length) await db.insert(schema.productMedia).values(PRODUCT_MEDIA as any);
   // events can be many — chunk to stay under SQLite's variable limit
   for (let i = 0; i < PRODUCT_EVENTS.length; i += 200) {
     await db.insert(schema.productEvents).values(PRODUCT_EVENTS.slice(i, i + 200) as any);
