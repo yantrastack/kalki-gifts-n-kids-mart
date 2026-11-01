@@ -22,8 +22,9 @@ work in production, so before deploying:
 
 1. **Database → Turso** (not `file:local.db`). Same libSQL, free hosted.
 2. **Media uploads → Cloudinary** (not the local `uploads/` dir). Already wired —
-   see [apps/stockwell/docs/MEDIA.md](apps/stockwell/docs/MEDIA.md). Committed
-   demo media under `/seed/*` ships inside the build and is fine.
+   see [apps/stockwell/docs/MEDIA.md](apps/stockwell/docs/MEDIA.md). Anything
+   committed under `/seed/*` ships inside the build, so only commercially licensed
+   product photos may go there (each is recorded in MEDIA.md's licence record).
 
 ### Set up Turso (once, ~5 min)
 

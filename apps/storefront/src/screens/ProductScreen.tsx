@@ -1,6 +1,7 @@
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import MediaCarousel from '../components/MediaCarousel';
+import ProductBadge from '../components/ProductBadge';
 import { useI18n } from '../i18n';
 import { type Theme, money } from '../theme';
 import type { Product, Brand } from '../api';
@@ -30,21 +31,16 @@ export default function ProductScreen({
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        <MediaCarousel media={product.media} productName={product.name} theme={theme} />
+        {/* key: a different product starts its gallery again at the first photo. */}
+        <MediaCarousel
+          key={product.id}
+          media={product.media}
+          productName={product.name}
+          theme={theme}
+        />
 
         <View style={[styles.sheet, { backgroundColor: theme.bg }]}>
-          {product.tag ? (
-            <View
-              style={[
-                styles.tagPill,
-                { backgroundColor: theme.accentSoft, borderRadius: theme.r.pill },
-              ]}
-            >
-              <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '700' }}>
-                {product.tag}
-              </Text>
-            </View>
-          ) : null}
+          <ProductBadge tag={product.tag} theme={theme} style={styles.tagPill} />
           <Text style={[styles.name, { color: theme.text }]}>{product.name}</Text>
           <Text style={[styles.meta, { color: theme.faint }]}>
             {[product.brand, product.category].filter(Boolean).join(' · ')}
@@ -190,7 +186,7 @@ function RoundAction({
 
 const styles = StyleSheet.create({
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, marginTop: -20, padding: 20 },
-  tagPill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
+  tagPill: { marginBottom: 8 },
   name: { fontSize: 23, fontWeight: '700', lineHeight: 29 },
   meta: { fontSize: 13, marginTop: 4 },
   priceRow: {
