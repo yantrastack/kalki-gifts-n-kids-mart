@@ -40,6 +40,33 @@ export type ShopBrand = {
   address: string;
 };
 
+/* ------------------------------------------------------------- product badges */
+
+/**
+ * Merchandising badges a product can carry (`ShopProduct.tag`). Each one is an explicit
+ * shop decision, not computed from data: the shop sets it on the product and it shows in
+ * the admin product list. Stored as these lower-case codes and translated by each app;
+ * any other word the shop sets is shown as typed. See docs/MEDIA.md → "Product badges".
+ */
+export const PRODUCT_BADGES = [
+  'bestseller',
+  'kids-favourite',
+  'premium',
+  'trending',
+  'new',
+  'festive-pick',
+] as const;
+export type ProductBadge = (typeof PRODUCT_BADGES)[number];
+
+/**
+ * Stored code for a badge as typed or as stored by older data ("Kids favourite" →
+ * "kids-favourite"). Empty / blank → null (no badge).
+ */
+export const productBadgeKey = (raw: string | null | undefined): string | null => {
+  const key = raw ? giftTagKey(raw) : '';
+  return key ? key : null;
+};
+
 /* ---------------------------------------------------------------- gift finder */
 
 /** Occasions the admin can tag a product with and users can filter by. */

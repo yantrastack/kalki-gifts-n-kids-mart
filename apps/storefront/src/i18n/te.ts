@@ -31,6 +31,18 @@ export const te: Dict = {
   card: {
     onlyLeft: 'కేవలం {count} మిగిలి ఉన్నాయి',
     addToCart: '{name} ను కార్ట్‌కు జోడించండి',
+    view: '{name} చూడండి, {price}',
+    photo: '{name} ఫోటో',
+    noPhoto: 'ఇంకా ఫోటో లేదు',
+  },
+
+  badge: {
+    bestseller: 'బెస్ట్‌సెల్లర్',
+    'kids-favourite': 'పిల్లలకు ఇష్టమైనది',
+    premium: 'ప్రీమియం',
+    trending: 'ట్రెండింగ్',
+    new: 'కొత్తది',
+    'festive-pick': 'పండుగ ఎంపిక',
   },
 
   product: {
@@ -47,7 +59,8 @@ export const te: Dict = {
     imageUnavailable: 'చిత్రం అందుబాటులో లేదు',
     prevImage: 'మునుపటి చిత్రం',
     nextImage: 'తదుపరి చిత్రం',
-    goToImage: 'చిత్రం {n}కి వెళ్లండి',
+    goToImage: '{total}లో {n}వ ఫోటో చూపించండి',
+    imagePosition: '{total}లో {n}వ ఫోటో',
   },
 
   cart: {
