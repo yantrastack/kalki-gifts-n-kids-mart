@@ -120,6 +120,17 @@ Admin uploads (Products → a product → **Media** tab) are streamed to
 with Range support. Great for development — but a local/ephemeral disk, so files
 are lost on redeploy on hosts like Vercel. Use Cloudinary for production.
 
+**Upload rules and the photo minimum (YAN-109).** Each file is checked in the browser
+and again by the API (`src/lib/mediaRules.ts`): photos must be JPG, PNG or WebP (read
+from the file's bytes, so a renamed file is caught), up to 10 MB and at least 800 px on
+the short side; videos MP4, MOV or WebM up to 50 MB. A batch with one bad file stores
+nothing. The order is set in the admin (drag, ← / → buttons, **Set as cover**) and saved
+with `PATCH /api/products/[id]/media { order }`; the first item is the cover. A product
+needs **3 photos to be published** (videos don't count). Products that were already live
+stay live and show a **Needs photos** badge until photos are added. Seed products are
+inserted as live, so `pnpm db:seed` still gives a full demo storefront; only add seed
+photos that have a licence row below.
+
 ## 3. Cloudinary (recommended for production) — free
 
 Why Cloudinary: the most generous free media host that does **images *and*

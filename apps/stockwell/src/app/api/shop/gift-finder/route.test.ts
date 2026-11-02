@@ -15,16 +15,27 @@ describe('GET /api/shop/gift-finder', () => {
 
   beforeAll(async () => {
     const { migrate } = await import('drizzle-orm/libsql/migrator');
-    const { db } = await import('@/db/client');
+    const { db, schema } = await import('@/db/client');
+    const { eq } = await import('drizzle-orm');
     await migrate(db, { migrationsFolder: path.resolve(process.cwd(), 'drizzle') });
     const { POST } = await import('@/app/api/products/route');
-    const create = (body: object) =>
-      POST(
-        new NextRequest('http://localhost/api/products', {
-          method: 'POST',
-          body: JSON.stringify(body),
-        }),
-      );
+    // Publishing needs photos (YAN-109); these tests are about gift tags, so a product
+    // with `activate` is created as a draft and then marked live directly.
+    const create = async ({ activate, ...body }: { activate?: boolean; [k: string]: unknown }) => {
+      const row = await (
+        await POST(
+          new NextRequest('http://localhost/api/products', {
+            method: 'POST',
+            body: JSON.stringify(body),
+          }),
+        )
+      ).json();
+      if (activate)
+        await db
+          .update(schema.products)
+          .set({ lifecycle: 'active' } as any)
+          .where(eq(schema.products.id, row.id));
+    };
     const live = { category: 'Gifts', cost: 100, gstRate: 18, hsnCode: '9503', activate: true };
     await create({
       ...live,

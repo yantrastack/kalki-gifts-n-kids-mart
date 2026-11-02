@@ -1,3 +1,5 @@
+import { MIN_PRODUCT_PHOTOS } from '@stockwell/shared';
+
 export type Lifecycle = 'draft' | 'active' | 'discontinued';
 
 type ActivationCandidate = {
@@ -15,7 +17,15 @@ const HSN_LENGTHS = new Set([4, 6, 8]);
 
 // Fields a product must have before it can become `active`. Returns an
 // empty array when the product is complete.
-export function missingForActivation(p: ActivationCandidate): string[] {
+//
+// `imageCount` (photos, not videos) is checked only when it is given: callers that
+// move a product to active pass it, so publishing needs MIN_PRODUCT_PHOTOS. Editing an
+// already-active product leaves it out, so products published before the photo rule
+// stay live and editable (YAN-109).
+export function missingForActivation(
+  p: ActivationCandidate,
+  opts: { imageCount?: number } = {},
+): string[] {
   const missing: string[] = [];
   if (!p.name?.trim()) missing.push('name');
   if (!p.sku?.trim()) missing.push('sku');
@@ -25,6 +35,7 @@ export function missingForActivation(p: ActivationCandidate): string[] {
   if (!(Number(p.price) > 0)) missing.push('price');
   if (p.gstRate == null || !VALID_GST_RATES.has(Number(p.gstRate))) missing.push('gstRate');
   if (!p.hsnCode?.trim() || !HSN_LENGTHS.has(p.hsnCode.trim().length)) missing.push('hsnCode');
+  if (opts.imageCount != null && !(opts.imageCount >= MIN_PRODUCT_PHOTOS)) missing.push('photos');
   return missing;
 }
 

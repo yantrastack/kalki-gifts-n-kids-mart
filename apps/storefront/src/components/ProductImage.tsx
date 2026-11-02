@@ -48,6 +48,7 @@ export default function ProductImage({
   iconSize,
   caption,
   hideOnError = false,
+  fit = 'cover',
 }: {
   uri?: string | null;
   label: string;
@@ -59,6 +60,8 @@ export default function ProductImage({
   caption?: string;
   /** Render nothing (instead of the placeholder) when missing or failed: for overlays. */
   hideOnError?: boolean;
+  /** "cover" fills the frame (may crop); "contain" shows the whole photo, never stretched. */
+  fit?: 'cover' | 'contain';
 }) {
   // Remember which URL failed, so a new URL (e.g. a recycled list cell) gets a fresh try.
   const [failedUri, setFailedUri] = useState<string | null>(null);
@@ -70,7 +73,7 @@ export default function ProductImage({
     <Image
       source={{ uri }}
       style={[{ backgroundColor: theme.muted }, style as any]}
-      contentFit="cover"
+      contentFit={fit}
       transition={transition}
       priority={priority ? 'high' : 'normal'}
       loading={priority ? 'eager' : 'lazy'}

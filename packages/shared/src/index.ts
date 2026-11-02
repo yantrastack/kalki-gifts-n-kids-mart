@@ -28,6 +28,22 @@ export type ShopProduct = {
   gift: GiftAttributes;
 };
 
+/* -------------------------------------------------------------- product photos */
+
+/**
+ * Photos a product needs before it can be published (moved to `active`). Only images
+ * count; videos don't. Drafts can have any number, and products that were already active
+ * stay live (grandfathered). Used by the admin form and the API, so both agree.
+ */
+export const MIN_PRODUCT_PHOTOS = 3;
+
+/** Shortest side, in pixels, a product photo must have so it stays sharp on big screens. */
+export const MIN_PHOTO_SIDE = 800;
+
+/** Number of photos (not videos) in a product's media. */
+export const photoCount = (media: { type: string }[]): number =>
+  media.filter((m) => m.type === 'image').length;
+
 /** Public branding as exposed by GET /api/brand. */
 export type ShopBrand = {
   appName: string;

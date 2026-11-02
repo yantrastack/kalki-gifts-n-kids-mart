@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { View, Text, FlatList, Pressable, Platform, StyleSheet } from 'react-native';
+import { View, FlatList, Pressable, Platform, PixelRatio, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useI18n } from '../i18n';
 import VideoPlayer from './VideoPlayer';
@@ -9,7 +9,8 @@ import { mediaUrl } from '../api';
 import { useAppWidth } from '../layout';
 import { useFocusRing } from './focusRing';
 import { prefersReducedMotion } from './hover';
-import { pageAt, stepIndex } from './gallery';
+import { pageAt, sizedImageUrl, stepIndex } from './gallery';
+import { GalleryArrows, GalleryCounter } from './GalleryControls';
 import type { ShopMedia } from '@stockwell/shared';
 
 const CALM = prefersReducedMotion();
@@ -41,7 +42,6 @@ export default function MediaCarousel({
     listRef.current?.scrollToIndex({ index: i, animated: !CALM });
   };
   const step = (delta: number) => goTo(stepIndex(index, delta, count));
-  const showArrows = Platform.OS === 'web' && count > 1;
 
   if (!count) {
     return (
@@ -88,10 +88,19 @@ export default function MediaCarousel({
           }}
           renderItem={({ item, index: i }) =>
             item.type === 'video' ? (
-              <VideoPlayer uri={mediaUrl(item.url)} width={width} height={width} theme={theme} />
+              // Only the slide on screen plays; the others stay paused.
+              <VideoPlayer
+                uri={mediaUrl(item.url)}
+                width={width}
+                height={width}
+                theme={theme}
+                active={i === index}
+              />
             ) : (
               <ProductImage
-                uri={mediaUrl(item.url)}
+                uri={sizedImageUrl(mediaUrl(item.url), width, PixelRatio.get())}
+                // Whole product visible (no crop) on a neutral background.
+                fit="contain"
                 label={
                   count > 1
                     ? `${t('card.photo', { name: productName })}, ${t('product.imagePosition', { n: i + 1, total: count })}`
@@ -108,33 +117,14 @@ export default function MediaCarousel({
             )
           }
         />
-        {showArrows && (
-          <>
-            <Arrow
-              dir="left"
-              theme={theme}
-              label={t('product.prevImage')}
-              onPress={() => step(-1)}
-            />
-            <Arrow
-              dir="right"
-              theme={theme}
-              label={t('product.nextImage')}
-              onPress={() => step(1)}
-            />
-          </>
-        )}
-        {count > 1 && (
-          <View style={styles.counter}>
-            <Text
-              style={styles.counterText}
-              accessibilityLabel={position}
-              accessibilityLiveRegion="polite"
-            >
-              {index + 1} / {count}
-            </Text>
-          </View>
-        )}
+        <GalleryArrows
+          count={count}
+          theme={theme}
+          prevLabel={t('product.prevImage')}
+          nextLabel={t('product.nextImage')}
+          onStep={step}
+        />
+        <GalleryCounter index={index} count={count} label={position} />
       </View>
 
       {count > 1 && (
@@ -155,31 +145,6 @@ export default function MediaCarousel({
         </View>
       )}
     </View>
-  );
-}
-
-function Arrow({
-  dir,
-  theme,
-  label,
-  onPress,
-}: {
-  dir: 'left' | 'right';
-  theme: Theme;
-  label: string;
-  onPress: () => void;
-}) {
-  const ring = useFocusRing(theme, 20);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      {...ring.handlers}
-      style={[styles.arrow, dir === 'left' ? styles.arrowLeft : styles.arrowRight, ring.ring]}
-    >
-      <Feather name={`chevron-${dir}`} size={22} color={theme.accentInk} />
-    </Pressable>
   );
 }
 
@@ -236,29 +201,6 @@ function Thumb({
 }
 
 const styles = StyleSheet.create({
-  arrow: {
-    position: 'absolute',
-    top: '50%',
-    marginTop: -20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.92)',
-  },
-  arrowLeft: { left: 12 },
-  arrowRight: { right: 12 },
-  counter: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  counterText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   // paddingBottom: the product sheet below overlaps the gallery by 20px.
   thumbs: {
     flexDirection: 'row',

@@ -43,6 +43,25 @@ describe('missingForActivation', () => {
   it('rejects an invalid HSN length', () => {
     expect(missingForActivation({ ...complete, hsnCode: '12' })).toContain('hsnCode');
   });
+
+  // YAN-109: publishing needs at least MIN_PRODUCT_PHOTOS photos.
+  it('needs at least 3 photos when the photo count is given', () => {
+    expect(missingForActivation(complete, { imageCount: 0 })).toEqual(['photos']);
+    expect(missingForActivation(complete, { imageCount: 2 })).toEqual(['photos']);
+    expect(missingForActivation(complete, { imageCount: 3 })).toEqual([]);
+    expect(missingForActivation(complete, { imageCount: 7 })).toEqual([]);
+  });
+
+  it('lists photos alongside other missing fields', () => {
+    expect(missingForActivation({ ...complete, price: 0 }, { imageCount: 1 })).toEqual([
+      'price',
+      'photos',
+    ]);
+  });
+
+  it('skips the photo rule when no count is given (edits to live products)', () => {
+    expect(missingForActivation(complete)).toEqual([]);
+  });
 });
 
 describe('validatePricing', () => {

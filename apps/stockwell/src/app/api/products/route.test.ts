@@ -38,11 +38,13 @@ describe('POST /api/products', () => {
     );
   const complete = { category: 'Gifts', price: 500, cost: 300, gstRate: 18, hsnCode: '8518' };
 
-  it('creates an active product when activate is true and it is complete', async () => {
+  // YAN-109: a new product has no photos yet, so it can't be published in the same
+  // request; the admin creates a draft, uploads photos, then activates it.
+  it('refuses activate on create for a complete product, asking only for photos', async () => {
     const res = await post({ ...complete, name: 'Live', sku: 'ACT-1', stock: 5, activate: true });
     const body = await res.json();
-    expect(res.status).toBe(201);
-    expect(body.lifecycle).toBe('active');
+    expect(res.status).toBe(400);
+    expect(body.missing).toEqual(['photos']);
   });
 
   it('refuses to activate an incomplete product and lists what is missing', async () => {
@@ -50,9 +52,7 @@ describe('POST /api/products', () => {
     const body = await res.json();
     expect(res.status).toBe(400);
     expect(body.error).toBe('Incomplete product');
-    expect(body.missing).toEqual(
-      expect.arrayContaining(['category', 'cost', 'price', 'hsnCode']),
-    );
+    expect(body.missing).toEqual(expect.arrayContaining(['category', 'cost', 'price', 'hsnCode']));
   });
 
   it('stores the badge as a translatable code, not display text (YAN-101)', async () => {

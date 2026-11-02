@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { hoverImage, pageAt, stepIndex } from '../../../storefront/src/components/gallery';
+import {
+  hoverImage,
+  pageAt,
+  sizedImageUrl,
+  stepIndex,
+} from '../../../storefront/src/components/gallery';
 import { en } from '../../../storefront/src/i18n/en';
 import { te } from '../../../storefront/src/i18n/te';
 
@@ -55,5 +60,29 @@ describe('gallery strings', () => {
       expect(d.product.goToImage).toContain('{n}');
       expect(d.product.goToImage).toContain('{total}');
     }
+  });
+});
+
+// YAN-109: sharp but light photos — Cloudinary serves a right-sized, auto-format copy.
+describe('sizedImageUrl', () => {
+  const cdn = 'https://res.cloudinary.com/demo/image/upload/v1712/stockwell/p1.jpg';
+
+  it('adds f_auto,q_auto and a width rounded up to a 200 px step', () => {
+    expect(sizedImageUrl(cdn, 390, 2)).toBe(
+      'https://res.cloudinary.com/demo/image/upload/f_auto,q_auto,w_800/v1712/stockwell/p1.jpg',
+    );
+    expect(sizedImageUrl(cdn, 480)).toContain(',w_600/');
+  });
+
+  it('caps the width at 2000 px', () => {
+    expect(sizedImageUrl(cdn, 1600, 3)).toContain(',w_2000/');
+  });
+
+  it('leaves local, seed and already-transformed URLs alone', () => {
+    expect(sizedImageUrl('http://localhost:3050/uploads/p1.jpg', 400)).toBe(
+      'http://localhost:3050/uploads/p1.jpg',
+    );
+    const done = 'https://res.cloudinary.com/demo/image/upload/w_300/v1/p1.jpg';
+    expect(sizedImageUrl(done, 400)).toBe(done);
   });
 });

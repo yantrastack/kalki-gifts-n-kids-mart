@@ -104,8 +104,18 @@ Demo logins (password `stockwell123`): `admin@stockwell.app` (admin),
 ### Product media (images + videos)
 - Table `product_media` (`apps/stockwell/src/db/schema.ts`); many per product,
   ordered, first = cover.
-- Admin: Products → open a product → **Media** tab (upload multiple, delete).
-- Upload/list/delete: `apps/stockwell/src/app/api/products/[id]/media/route.ts`.
+- Admin: Products → open a product → **Media** tab (upload multiple, reorder by drag or
+  ← / → buttons, **Set as cover**, delete), and the same grid in the Add product popup
+  (`ProductMediaGrid.tsx`, shared by `MediaPicker.tsx` and `MediaTab`).
+- Upload/list/reorder (`PATCH { order }`)/delete:
+  `apps/stockwell/src/app/api/products/[id]/media/route.ts`.
+- **Publishing needs ≥ `MIN_PRODUCT_PHOTOS` (3) photos** (videos don't count;
+  `missingForActivation(p, { imageCount })` → `missing: ['photos']`). Drafts can have any
+  number. Products already active stay live (grandfathered) with a "Needs photos" badge
+  and filter. "Publish product" = create draft → upload → `POST /lifecycle`. YAN-109.
+- Upload rules (`src/lib/mediaRules.ts`, same in browser and API): JPG/PNG/WebP photos
+  ≤ 10 MB and ≥ `MIN_PHOTO_SIDE` (800 px) on the short side, checked from the file bytes;
+  MP4/MOV/WebM videos ≤ 50 MB. GIF is no longer accepted for new uploads.
 - Files stored in `apps/stockwell/uploads/` (gitignored) and streamed with HTTP
   Range support by `apps/stockwell/src/app/uploads/[...file]/route.ts` — so phone
   video players can seek. `src/lib/uploads.ts` holds the shared dir + MIME maps.
