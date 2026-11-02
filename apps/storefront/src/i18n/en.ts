@@ -18,6 +18,8 @@ export const en = {
   header: {
     cart: 'Your cart',
     findGift: 'Find a gift',
+    back: 'Back',
+    discover: 'Open Discover',
   },
 
   error: {
@@ -37,6 +39,25 @@ export const en = {
     view: 'View {name}, {price}',
     photo: 'Photo of {name}',
     noPhoto: 'No photo yet',
+  },
+
+  /**
+   * Product categories, keyed by categoryKey(name) ("Home Decor" → "home-decor"). A
+   * category the shop adds without an entry here is shown as typed.
+   */
+  category: {
+    accessories: 'Accessories',
+    candles: 'Candles',
+    chocolates: 'Chocolates',
+    festive: 'Festive',
+    fragrance: 'Fragrance',
+    gourmet: 'Gourmet',
+    'home-decor': 'Home Decor',
+    jewelry: 'Jewelry',
+    personalized: 'Personalized',
+    plants: 'Plants',
+    stationery: 'Stationery',
+    toys: 'Toys',
   },
 
   /** Product badges, keyed by the stored code (PRODUCT_BADGES in @stockwell/shared). */
@@ -84,6 +105,23 @@ export const en = {
     details: 'Details',
     addToCart: 'Add to cart',
     related: 'More like this',
+    feed: 'Product reels',
+    categories: 'Categories',
+    close: 'Close Discover',
+    soundOn: 'Turn sound on',
+    soundOff: 'Turn sound off',
+    cart_one: 'Cart, {count} item',
+    cart_other: 'Cart, {count} items',
+    like: 'Like {name}',
+    share: 'Share {name}',
+    buyNow: 'Buy {name} now',
+    detailsFor: 'Details for {name}',
+    added: 'Added to cart',
+    maxInCart: 'All {count} in stock are already in your cart',
+    loadMoreError: "Couldn't load more",
+    end: "You're all caught up",
+    empty: 'No reels here yet',
+    showAll: 'Show all',
   },
 
   gift: {

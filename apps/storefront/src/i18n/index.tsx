@@ -1,6 +1,7 @@
 import type React from 'react';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { giftTagLabel, type GiftReason } from '@stockwell/shared';
+import { categoryKey } from '../reels';
 import { en } from './en';
 import { te } from './te';
 
@@ -70,6 +71,8 @@ type I18nValue = {
    * have no translation, so they are shown as typed ("raksha-bandhan" → "raksha bandhan").
    */
   giftTag: (group: 'occasion' | 'type', key: string) => string;
+  /** Label for a product category. Known ones are translated; others are shown as stored. */
+  categoryLabel: (name: string) => string;
 };
 
 const I18nContext = createContext<I18nValue | null>(null);
@@ -90,6 +93,15 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       const label = t(path);
       // No translation (a word the shop added) → show it as typed, in Title Case like the rest.
       return label === path ? giftTagLabel(key).replace(/\b\w/g, (c) => c.toUpperCase()) : label;
+    },
+    [t],
+  );
+
+  const categoryLabel = useCallback(
+    (name: string) => {
+      const path = `category.${categoryKey(name)}`;
+      const label = t(path);
+      return label === path ? name : label;
     },
     [t],
   );
@@ -118,8 +130,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo<I18nValue>(
-    () => ({ lang, setLang, t, giftReason, giftTag }),
-    [lang, setLang, t, giftReason, giftTag],
+    () => ({ lang, setLang, t, giftReason, giftTag, categoryLabel }),
+    [lang, setLang, t, giftReason, giftTag, categoryLabel],
   );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

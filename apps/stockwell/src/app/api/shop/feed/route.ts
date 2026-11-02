@@ -3,6 +3,7 @@ import { db, schema } from '@/db/client';
 import { asc, desc, sql } from 'drizzle-orm';
 import { csvToList, type FeedProduct, type FeedResponse, type ShopMedia } from '@stockwell/shared';
 import { isPublic } from '@/lib/catalog';
+import { reelCategories, reelPool, relatedReels } from '@/lib/feed';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };
 
@@ -56,29 +57,24 @@ export async function GET(req: NextRequest) {
   const likeBy = new Map(likeCounts.map((r) => [r.productId, Math.max(Number(r.n) || 0, 0)]));
   const shareBy = new Map(shareCounts.map((r) => [r.productId, Math.max(Number(r.n) || 0, 0)]));
 
-  // Sellable set, in feed order.
+  // Reel pool, in feed order: sellable products that have media (YAN-110: products with
+  // no media used to fill most of the feed with placeholder blocks).
   const sellable = rows.filter((p) => isPublic(p as any) && p.stock > 0);
+  const pool = reelPool(sellable, (id) => mediaByProduct.get(id)?.length ?? 0);
   const cover = (id: string) =>
     mediaByProduct.get(id)?.find((m) => m.type === 'image')?.url ?? null;
 
   const filtered =
-    category && category !== 'all' ? sellable.filter((p) => p.category === category) : sellable;
+    category && category !== 'all' ? pool.filter((p) => p.category === category) : pool;
 
   const page = filtered.slice(offset, offset + limit);
   const items: FeedProduct[] = page.map((p) => {
-    // Related: same category or overlapping gift types, excluding self.
-    const myTypes = new Set(csvToList(p.giftTypes));
-    const related = sellable
-      .filter((o) => o.id !== p.id)
-      .map((o) => {
-        let rel = o.category === p.category ? 2 : 0;
-        for (const t of csvToList(o.giftTypes)) if (myTypes.has(t)) rel += 1;
-        return { o, rel };
-      })
-      .filter((x) => x.rel > 0)
-      .sort((a, b) => b.rel - a.rel)
-      .slice(0, 6)
-      .map((x) => ({ id: x.o.id, name: x.o.name, price: x.o.price, thumb: cover(x.o.id) }));
+    const related = relatedReels(p, pool, (o) => ({
+      id: o.id,
+      name: o.name,
+      price: o.price,
+      thumb: cover(o.id),
+    }));
 
     return {
       id: p.id,
@@ -108,6 +104,7 @@ export async function GET(req: NextRequest) {
   const res: FeedResponse = {
     items,
     nextCursor: nextOffset < filtered.length ? String(nextOffset) : null,
+    categories: reelCategories(pool),
   };
   return NextResponse.json(res, { headers: CORS });
 }
