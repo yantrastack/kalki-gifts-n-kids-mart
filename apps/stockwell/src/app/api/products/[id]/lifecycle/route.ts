@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { canTransition, missingForActivation, type Lifecycle } from '@/lib/catalog';
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 const VALID: Lifecycle[] = ['draft', 'active', 'discontinued'];
 
@@ -27,7 +27,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (to === 'active') {
-    const missing = missingForActivation(product);
+    // Publishing needs MIN_PRODUCT_PHOTOS photos (videos don't count). YAN-109.
+    const photos = await db
+      .select({ n: sql<number>`count(*)` })
+      .from(schema.productMedia)
+      .where(and(eq(schema.productMedia.productId, id), eq(schema.productMedia.type, 'image')))
+      .get();
+    const missing = missingForActivation(product, { imageCount: Number(photos?.n ?? 0) });
     if (missing.length) {
       return NextResponse.json({ error: 'Incomplete product', missing }, { status: 400 });
     }

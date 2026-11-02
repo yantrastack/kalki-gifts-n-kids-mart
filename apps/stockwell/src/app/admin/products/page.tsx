@@ -8,7 +8,48 @@ import ImportProductsModal from '@/components/ImportProductsModal';
 import { useI18n } from '@/i18n';
 import { useUser } from '@/components/UserContext';
 import GiftFields, { type GiftValue } from '@/components/GiftFields';
-import { giftTagLabel } from '@stockwell/shared';
+import { MIN_PRODUCT_PHOTOS, giftTagLabel, photoCount } from '@stockwell/shared';
+import { missingForActivation } from '@/lib/catalog';
+import { UPLOAD_ACCEPT, moveItem } from '@/lib/mediaRules';
+import { filePhotoCount } from '@/components/MediaPicker';
+import {
+  MediaHelp,
+  PhotoCount,
+  ProductMediaGrid,
+  problemMessage,
+  screenFiles,
+} from '@/components/ProductMediaGrid';
+
+// Live products published before the photo rule (YAN-109) stay live, but are flagged so
+// the shop can add photos. Drafts are blocked from publishing instead.
+const needsPhotos = (p: any) =>
+  p.lifecycle === 'active' && (Number(p.photoCount) || 0) < MIN_PRODUCT_PHOTOS;
+
+function NeedsPhotosBadge({ p }: { p: any }) {
+  const { t } = useI18n();
+  if (!needsPhotos(p)) return null;
+  return (
+    <span
+      className="badge badge-warn"
+      title={t('media.needsPhotosHint', { min: MIN_PRODUCT_PHOTOS })}
+      style={{ whiteSpace: 'nowrap' }}
+    >
+      {t('media.needsPhotos', { n: Number(p.photoCount) || 0, min: MIN_PRODUCT_PHOTOS })}
+    </span>
+  );
+}
+
+// Uploads files to a product's media; throws `{ message, problem? }` when it is refused.
+async function uploadMedia(productId: string, files: File[]) {
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  const r = await fetch(`/api/products/${productId}/media`, { method: 'POST', body: fd });
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    throw Object.assign(new Error(body.error || 'Upload failed'), { problem: body.problem });
+  }
+  return r.json();
+}
 
 export default function ProductsPage() {
   const {
@@ -32,6 +73,7 @@ export default function ProductsPage() {
   const [category, setCategory] = useState('all');
   const [brand, setBrand] = useState('all');
   const [stockFilter, setStockFilter] = useState('all');
+  const [photoFilter, setPhotoFilter] = useState('all');
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
   const [view, setView] = useState('table');
   const [openProduct, setOpenProduct] = useState<any>(null);
@@ -46,6 +88,8 @@ export default function ProductsPage() {
     setLoading(true);
     jget('/api/products').then((p) => {
       setProducts(p);
+      // Keep an open product panel current (e.g. its photo count after an upload).
+      setOpenProduct((cur: any) => (cur ? (p.find((x: any) => x.id === cur.id) ?? cur) : cur));
       setLoading(false);
     });
   };
@@ -75,6 +119,7 @@ export default function ProductsPage() {
       if (category !== 'all' && p.category !== category) return false;
       if (brand !== 'all' && p.brand !== brand) return false;
       if (stockFilter !== 'all' && p.status !== stockFilter) return false;
+      if (photoFilter === 'needs' && !needsPhotos(p)) return false;
       return true;
     });
     r = [...r].sort((a, b) => {
@@ -84,13 +129,13 @@ export default function ProductsPage() {
       return sort.dir === 'asc' ? cmp : -cmp;
     });
     return r;
-  }, [products, query, category, brand, stockFilter, sort]);
+  }, [products, query, category, brand, stockFilter, photoFilter, sort]);
 
   const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   useEffect(() => {
     setPage(1);
-  }, [query, category, brand, stockFilter]);
+  }, [query, category, brand, stockFilter, photoFilter]);
 
   // Both Delete entry points (row menu, detail panel) only set `removing`; the request
   // is sent from the confirmation dialog.
@@ -115,22 +160,40 @@ export default function ProductsPage() {
     }
   };
   // The API answers an incomplete product with `{ error, missing: [...] }` (status 400).
+  const fieldNames = (missing: string[]) =>
+    missing.map((f) => t(`productForm.missing.${f}`, { min: MIN_PRODUCT_PHOTOS })).join(', ');
   const missingFields = (e: any): string | null =>
     e?.status === 400 && Array.isArray(e.body?.missing) && e.body.missing.length
-      ? e.body.missing.map((f: string) => t(`productForm.missing.${f}`)).join(', ')
+      ? fieldNames(e.body.missing)
       : null;
 
-  // `activate: true` (Publish product) makes the product live in the customer app; false
-  // (Save as draft) keeps it out until someone activates it.
+  // "Publish product" (activate) makes the product live in the customer app; "Save as
+  // draft" keeps it out until someone activates it. Publishing needs MIN_PRODUCT_PHOTOS
+  // photos, which can only be uploaded once the product has an id, so publishing is:
+  // create as draft → upload media → activate. The form is checked here first with the
+  // API's own rules, so a product that can't be published isn't created at all.
+  // Returns 'needsPhotos' so the popup can open its photo section.
   const handleAdd = async (
     form: any,
     files: File[] = [],
     opts: { activate?: boolean } = {},
-  ) => {
+  ): Promise<'needsPhotos' | undefined> => {
     const activate = opts.activate ?? true;
+    if (activate) {
+      const missing = missingForActivation(form, { imageCount: filePhotoCount(files) });
+      if (missing.length) {
+        toast({
+          message: t('productForm.cantPublish', { fields: fieldNames(missing) }),
+          icon: 'alert',
+          type: 'danger',
+        });
+        // Keep the popup open so they can fix it or save a draft.
+        return missing.includes('photos') ? 'needsPhotos' : undefined;
+      }
+    }
     let created: any;
     try {
-      created = await jsend('/api/products', 'POST', { ...form, activate });
+      created = await jsend('/api/products', 'POST', { ...form, activate: false });
     } catch (e: any) {
       const fields = missingFields(e);
       toast({
@@ -138,20 +201,17 @@ export default function ProductsPage() {
         icon: 'alert',
         type: 'danger',
       });
-      return; // keep the popup open so they can fix it or save a draft
+      return;
     }
     setAddOpen(false);
-    // Photos/videos need the new product's id, so they go up right after it is created.
-    // If that fails the product still exists; say so and let them retry from its Media tab.
+    // If the upload fails the product still exists as a draft; say so and let them retry
+    // from its Media tab.
     if (files.length) {
       try {
-        const fd = new FormData();
-        for (const f of files) fd.append('files', f);
-        const r = await fetch(`/api/products/${created.id}/media`, { method: 'POST', body: fd });
-        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Upload failed');
+        await uploadMedia(created.id, files);
       } catch (e: any) {
         toast({
-          message: t('productForm.mediaFailed', { error: e.message }),
+          message: t('productForm.mediaFailed', { error: uploadError(e) }),
           icon: 'alert',
           type: 'danger',
         });
@@ -161,7 +221,25 @@ export default function ProductsPage() {
     }
     if (!activate) {
       toast({ message: t('productForm.draftSaved', { name: form.name }), icon: 'check' });
-    } else if (!(Number(form.stock) > 0)) {
+      load();
+      return;
+    }
+    try {
+      await jsend(`/api/products/${created.id}/lifecycle`, 'POST', { to: 'active' });
+    } catch (e: any) {
+      // e.g. a photo the server rejected after all: nothing is lost, it stays a draft.
+      const fields = missingFields(e);
+      toast({
+        message: fields
+          ? t('productForm.savedNotPublished', { name: form.name, fields })
+          : t('productForm.activateFailed', { name: form.name }),
+        icon: 'alert',
+        type: 'danger',
+      });
+      load();
+      return;
+    }
+    if (!(Number(form.stock) > 0)) {
       // Live, but the customer app hides products with no stock.
       toast({ message: t('productForm.publishedNoStock', { name: form.name }), icon: 'alert' });
     } else {
@@ -169,6 +247,10 @@ export default function ProductsPage() {
     }
     load();
   };
+
+  // A rejected upload explains itself as `problem` (translated here) or as `error`.
+  const uploadError = (e: any): string =>
+    e?.problem ? problemMessage(t, e.problem) : e?.message || 'Upload failed';
 
   // Draft (or discontinued) → active. The API checks the product is complete first.
   const activateProduct = async (p: any) => {
@@ -278,6 +360,19 @@ export default function ProductsPage() {
               { value: 'out', label: 'Out of stock' },
             ]}
           />
+          <UI.Select
+            aria-label={t('media.filterNeeds')}
+            style={{ width: 160 }}
+            value={photoFilter}
+            onChange={setPhotoFilter}
+            options={[
+              { value: 'all', label: t('media.filterAll') },
+              {
+                value: 'needs',
+                label: `${t('media.filterNeeds')} (${products.filter(needsPhotos).length})`,
+              },
+            ]}
+          />
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
             <div
               style={{
@@ -367,6 +462,7 @@ export default function ProductsPage() {
                               {p.name}
                             </div>
                             {p.lifecycle && p.lifecycle !== 'active' && statusBadge(p.lifecycle)}
+                            <NeedsPhotosBadge p={p} />
                           </div>
                           <div style={{ fontSize: 'var(--t-xs)', color: 'var(--fg-tertiary)' }}>
                             {p.brand}
@@ -490,10 +586,16 @@ export default function ProductsPage() {
                     </div>
                   </div>
                   <div
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-end',
+                      gap: 4,
+                    }}
                   >
                     {statusBadge(p.status)}
                     {p.lifecycle && p.lifecycle !== 'active' && statusBadge(p.lifecycle)}
+                    <NeedsPhotosBadge p={p} />
                   </div>
                 </div>
                 <div className="spread" style={{ marginTop: 10 }}>
@@ -711,6 +813,7 @@ function ProductDetail({
             <h3 style={{ margin: 0, fontSize: 'var(--t-lg)', fontWeight: 600 }}>{p.name}</h3>
             {statusBadge(p.status)}
             {p.lifecycle && p.lifecycle !== 'active' && statusBadge(p.lifecycle)}
+            <NeedsPhotosBadge p={p} />
           </div>
           <div className="muted tiny mono" style={{ marginTop: 4 }}>
             {p.sku} · {p.barcode}
@@ -897,7 +1000,7 @@ function ProductDetail({
             </div>
           </>
         )}
-        {tab === 'media' && <MediaTab productId={p.id} isAdmin={isAdmin} />}
+        {tab === 'media' && <MediaTab productId={p.id} isAdmin={isAdmin} onChanged={onSaved} />}
         {tab === 'gifting' && <GiftingTab product={p} onSaved={onSaved} />}
         {tab === 'adjust' && (
           <div className="dp-section">
@@ -954,14 +1057,21 @@ function ProductDetail({
   );
 }
 
-function MediaTab({ productId, isAdmin }: { productId: string; isAdmin: boolean }) {
+function MediaTab({
+  productId,
+  isAdmin,
+  onChanged,
+}: {
+  productId: string;
+  isAdmin: boolean;
+  onChanged?: () => void;
+}) {
   const { useToast } = UI;
   const toast = useToast();
   const { t } = useI18n();
   const [items, setItems] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<Set<string>>(new Set());
-  const markFailed = (id: string) => setFailed((s) => new Set(s).add(id));
+  const [errors, setErrors] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = () => jget(`/api/products/${productId}/media`).then(setItems);
@@ -969,142 +1079,100 @@ function MediaTab({ productId, isAdmin }: { productId: string; isAdmin: boolean 
     load();
   }, [productId]);
 
-  const upload = async (files: FileList | null) => {
-    if (!files?.length) return;
+  const upload = async (picked: FileList | null) => {
+    if (!picked?.length) return;
+    const list = Array.from(picked);
+    if (fileRef.current) fileRef.current.value = '';
     setBusy(true);
     try {
-      const fd = new FormData();
-      for (const f of Array.from(files)) fd.append('files', f);
-      const r = await fetch(`/api/products/${productId}/media`, { method: 'POST', body: fd });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Upload failed');
-      toast({
-        message: `Uploaded ${files.length} file${files.length > 1 ? 's' : ''}`,
-        icon: 'check',
-      });
+      // Same checks as the API, so a bad file is explained before anything uploads.
+      const { accepted, problems } = await screenFiles(list);
+      setErrors(problems.map((p) => problemMessage(t, p)));
+      if (!accepted.length) return;
+      await uploadMedia(productId, accepted);
+      toast({ message: t('media.uploaded', { count: accepted.length }), icon: 'check' });
       load();
+      onChanged?.();
     } catch (e: any) {
-      toast({ message: e.message, icon: 'x' });
+      toast({
+        message: t('media.uploadFailed', {
+          error: e?.problem ? problemMessage(t, e.problem) : e.message,
+        }),
+        icon: 'x',
+      });
     } finally {
       setBusy(false);
-      if (fileRef.current) fileRef.current.value = '';
     }
   };
 
-  const remove = async (mediaId: string) => {
-    const r = await fetch(`/api/products/${productId}/media?mediaId=${mediaId}`, {
+  const remove = async (index: number) => {
+    const m = items[index];
+    const r = await fetch(`/api/products/${productId}/media?mediaId=${m.id}`, {
       method: 'DELETE',
     });
     if (r.ok) {
-      toast({ message: 'Media removed', icon: 'check' });
+      toast({ message: t('media.removed'), icon: 'check' });
       load();
-    } else toast({ message: 'Delete failed', icon: 'x' });
+      onChanged?.();
+    } else toast({ message: t('media.removeFailed'), icon: 'x' });
+  };
+
+  // Reorder (and "Set as cover" = move to the front): show it at once, then save.
+  const move = async (from: number, to: number) => {
+    const next = moveItem(items, from, to);
+    if (next === items) return;
+    setItems(next);
+    try {
+      const saved = await jsend(`/api/products/${productId}/media`, 'PATCH', {
+        order: next.map((m) => m.id),
+      });
+      setItems(saved);
+      toast({ message: t('media.reordered'), icon: 'check' });
+    } catch {
+      toast({ message: t('media.reorderFailed'), icon: 'x' });
+      load();
+    }
   };
 
   return (
     <div className="dp-section">
-      <h4>Photos &amp; videos</h4>
-      <p className="muted tiny" style={{ marginBottom: 12 }}>
-        Shown to customers in the storefront app. The first item is the cover. Images
-        (JPG/PNG/WebP/GIF) and videos (MP4/MOV/WebM), up to 50&nbsp;MB each.
-      </p>
+      <h4>{t('media.title')}</h4>
+      <MediaHelp />
       <input
         ref={fileRef}
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm"
+        accept={UPLOAD_ACCEPT}
         style={{ display: 'none' }}
         onChange={(e) => upload(e.target.files)}
       />
       <button
+        type="button"
         className="btn btn-primary btn-sm"
         disabled={busy}
         onClick={() => fileRef.current?.click()}
       >
-        <Icon name="plus" size={12} /> {busy ? 'Uploading…' : 'Upload files'}
+        <Icon name="plus" size={12} /> {busy ? t('media.uploading') : t('media.add')}
       </button>
-      <div
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 14 }}
-      >
-        {items.map((m, i) => (
-          <div
-            key={m.id}
-            style={{
-              position: 'relative',
-              borderRadius: 'var(--r-md)',
-              overflow: 'hidden',
-              border: '1px solid var(--border)',
-              background: 'var(--bg-muted)',
-              aspectRatio: '1',
-            }}
-          >
-            {failed.has(m.id) ? (
-              <div
-                className="muted tiny"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  textAlign: 'center',
-                  padding: 8,
-                }}
-              >
-                {m.type === 'video' ? t('media.videoUnavailable') : t('media.unavailable')}
-              </div>
-            ) : m.type === 'video' ? (
-              <video
-                src={m.url}
-                muted
-                playsInline
-                onError={() => markFailed(m.id)}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <img
-                src={m.url}
-                alt=""
-                onError={() => markFailed(m.id)}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            )}
-            {i === 0 && (
-              <span
-                className="badge badge-accent"
-                style={{ position: 'absolute', top: 6, left: 6 }}
-              >
-                Cover
-              </span>
-            )}
-            {m.type === 'video' && (
-              <span className="badge" style={{ position: 'absolute', bottom: 6, left: 6 }}>
-                Video
-              </span>
-            )}
-            {isAdmin && (
-              <button
-                className="icon-btn"
-                title="Remove"
-                onClick={() => remove(m.id)}
-                style={{
-                  position: 'absolute',
-                  top: 4,
-                  right: 4,
-                  background: 'var(--bg)',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                <Icon name="trash" size={12} />
-              </button>
-            )}
-          </div>
-        ))}
-        {!items.length && (
-          <div className="muted tiny" style={{ gridColumn: '1 / -1', padding: '16px 0' }}>
-            No media yet — upload photos or a short video of this product.
-          </div>
-        )}
-      </div>
+      {errors.length > 0 && (
+        <ul className="field-error" role="alert" style={{ marginTop: 8, paddingLeft: 16 }}>
+          {errors.map((e) => (
+            <li key={e}>{e}</li>
+          ))}
+        </ul>
+      )}
+      <PhotoCount photos={photoCount(items)} />
+      <ProductMediaGrid
+        items={items.map((m) => ({ key: m.id, url: m.url, type: m.type }))}
+        disabled={busy}
+        onMove={move}
+        onRemove={isAdmin ? remove : undefined}
+      />
+      {!items.length && (
+        <p className="muted tiny" style={{ padding: '16px 0' }}>
+          {t('media.empty')}
+        </p>
+      )}
     </div>
   );
 }

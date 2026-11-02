@@ -81,7 +81,9 @@ export default function AddProductModal({
             giftAgeMax: gift.ageMax === '' ? null : Number(gift.ageMax),
           }
         : form;
-      await onSubmit(payload, customizable ? files : [], { activate });
+      const result = await onSubmit(payload, customizable ? files : [], { activate });
+      // Publishing was refused for too few photos: open the photo section to add them.
+      if (result === 'needsPhotos' && customizable) setCustomize(true);
     } finally {
       setBusy(false);
     }

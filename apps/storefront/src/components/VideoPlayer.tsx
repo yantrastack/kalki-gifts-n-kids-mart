@@ -15,6 +15,11 @@ type PlayerProps = {
   height: number;
   theme: Theme;
   autoPlay?: boolean;
+  /**
+   * False while the video's slide is not on screen (e.g. another gallery photo is shown):
+   * it is paused, and plays again (when `autoPlay`) once its slide is current.
+   */
+  active?: boolean;
 };
 
 /**
@@ -31,7 +36,7 @@ export default function VideoPlayer(props: PlayerProps) {
 }
 
 /* ------------------------------------------------------------------ web player */
-function WebPlayer({ uri, width, height, theme, autoPlay = true }: PlayerProps) {
+function WebPlayer({ uri, width, height, theme, autoPlay = true, active = true }: PlayerProps) {
   const videoRef = useRef<any>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
@@ -53,7 +58,6 @@ function WebPlayer({ uri, width, height, theme, autoPlay = true }: PlayerProps) 
     el.addEventListener('loadedmetadata', onMeta);
     el.addEventListener('durationchange', onMeta);
     el.addEventListener('volumechange', onVolume);
-    if (autoPlay) el.play().catch(() => {}); // muted autoplay; browsers may still decline
     // Safety net: some browsers halt background media without firing events.
     const poll = setInterval(() => {
       setPlaying(!el.paused);
@@ -69,7 +73,15 @@ function WebPlayer({ uri, width, height, theme, autoPlay = true }: PlayerProps) 
       el.removeEventListener('durationchange', onMeta);
       el.removeEventListener('volumechange', onVolume);
     };
-  }, [autoPlay]);
+  }, []);
+
+  // Play the current slide (muted autoplay; browsers may still decline), pause the others.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (active && autoPlay) el.play().catch(() => {});
+    else if (!active) el.pause();
+  }, [active, autoPlay]);
 
   const lastToggle = useRef(0);
   const togglePlay = () => {
@@ -127,13 +139,21 @@ function WebPlayer({ uri, width, height, theme, autoPlay = true }: PlayerProps) 
 }
 
 /* --------------------------------------------------------------- native player */
-function NativePlayer({ uri, width, height, theme, autoPlay = true }: PlayerProps) {
+function NativePlayer({ uri, width, height, theme, autoPlay = true, active = true }: PlayerProps) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.muted = true;
-    if (autoPlay) p.play();
+    if (autoPlay && active) p.play();
   });
-  const [playing, setPlaying] = useState(autoPlay);
+  useEffect(() => {
+    try {
+      if (active && autoPlay) player.play();
+      else if (!active) player.pause();
+    } catch {
+      /* player released */
+    }
+  }, [player, active, autoPlay]);
+  const [playing, setPlaying] = useState(autoPlay && active);
   const [muted, setMuted] = useState(true);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);

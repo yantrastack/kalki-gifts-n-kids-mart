@@ -48,7 +48,15 @@ export async function GET(req: NextRequest) {
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(schema.products.updatedAt));
   const filtered = sellable ? rows.filter((p) => isSellable(p as any)) : rows;
-  return NextResponse.json(filtered);
+
+  // Photo count per product, so the admin can flag products with too few photos.
+  const counts = await db
+    .select({ productId: schema.productMedia.productId, n: sql<number>`count(*)` })
+    .from(schema.productMedia)
+    .where(eq(schema.productMedia.type, 'image'))
+    .groupBy(schema.productMedia.productId);
+  const photos = new Map(counts.map((c) => [c.productId, Number(c.n)]));
+  return NextResponse.json(filtered.map((p) => ({ ...p, photoCount: photos.get(p.id) ?? 0 })));
 }
 
 export async function POST(req: NextRequest) {
@@ -85,9 +93,12 @@ export async function POST(req: NextRequest) {
     hsnCode: body.hsnCode || null,
   };
 
+  // A new product has no photos yet (they upload once it has an id), so publishing in
+  // the same request is refused for `photos`. The admin creates a draft, uploads, then
+  // activates via POST /api/products/[id]/lifecycle. YAN-109.
   const activate = !!body.activate;
   if (activate) {
-    const missing = missingForActivation(candidate);
+    const missing = missingForActivation(candidate, { imageCount: 0 });
     if (missing.length)
       return NextResponse.json({ error: 'Incomplete product', missing }, { status: 400 });
   }

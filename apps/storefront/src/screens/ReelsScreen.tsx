@@ -7,6 +7,7 @@ import {
   FlatList,
   ActivityIndicator,
   ScrollView,
+  PixelRatio,
   type ViewToken,
 } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -18,9 +19,22 @@ import { useAppWidth } from '../layout';
 import { type Theme, money } from '../theme';
 import ProductImage, { ImageFallback } from '../components/ProductImage';
 import ProductBadge from '../components/ProductBadge';
+import { pageAt, sizedImageUrl, stepIndex } from '../components/gallery';
+import { GalleryArrows, GalleryCounter } from '../components/GalleryControls';
 
 /** Placeholder tone on the black Discover feed (the light app tone would glare here). */
 const REEL_FALLBACK = '#24211D';
+// Gallery counter position, under the header and category chips.
+const COUNTER_TOP = 108;
+// Reel gallery arrows (40px tall) go in the clear band between the counter (~140px) and
+// the right action rail. On short screens the rail fills that side, so the right arrow
+// steps in to the left of the rail instead. Before the rail is measured: mid-height.
+const BAND_TOP = 140;
+const reelArrows = (railTop: number | null) => {
+  if (railTop == null) return {};
+  if (railTop - BAND_TOP >= 56) return { top: Math.round((BAND_TOP + railTop) / 2) };
+  return { top: BAND_TOP + 28, rightInset: 72 };
+};
 
 const compact = (n: number) =>
   n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
@@ -292,22 +306,43 @@ function Reel({
   onRelated: (id: string) => void;
 }) {
   const [mediaIndex, setMediaIndex] = useState(0);
+  // Top edge of the right action rail, measured on layout. The gallery arrows sit in the
+  // clear band between the counter and the rail; at mid-height the right arrow covered the
+  // like button and could not be clicked.
+  const [railTop, setRailTop] = useState<number | null>(null);
+  const mediaRef = useRef<FlatList<FeedProduct['media'][number]>>(null);
   const media = product.media.length ? product.media : [];
+  const count = media.length;
   const low = product.inStock <= 10;
+  // Same paging as the product page gallery: arrows (web), counter, swipe.
+  const step = (delta: number) => {
+    const i = stepIndex(mediaIndex, delta, count);
+    setMediaIndex(i);
+    mediaRef.current?.scrollToIndex({ index: i, animated: true });
+  };
 
   return (
     <View style={{ width, height, backgroundColor: '#000' }}>
       {/* Media carousel (background) */}
       {media.length ? (
         <FlatList
+          ref={mediaRef}
           data={media}
           horizontal
           pagingEnabled
+          // Lock each swipe to one axis: sideways pages photos, up/down pages reels.
+          directionalLockEnabled
+          nestedScrollEnabled
           showsHorizontalScrollIndicator={false}
           keyExtractor={(m) => m.id}
-          onMomentumScrollEnd={(e) =>
-            setMediaIndex(Math.round(e.nativeEvent.contentOffset.x / width))
-          }
+          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+          // onScroll (not onMomentumScrollEnd): mobile web never fires momentum events, so
+          // the counter stuck on 1 and a later video slide never played.
+          scrollEventThrottle={32}
+          onScroll={(e) => {
+            const i = pageAt(e.nativeEvent.contentOffset.x, width, count);
+            if (i !== mediaIndex) setMediaIndex(i);
+          }}
           renderItem={({ item, index }) =>
             item.type === 'video' ? (
               <ReelVideo
@@ -319,8 +354,12 @@ function Reel({
               />
             ) : (
               <ProductImage
-                uri={mediaUrl(item.url)}
-                label={t('card.photo', { name: product.name })}
+                uri={sizedImageUrl(mediaUrl(item.url), width, PixelRatio.get())}
+                label={
+                  count > 1
+                    ? `${t('card.photo', { name: product.name })}, ${t('product.imagePosition', { n: index + 1, total: count })}`
+                    : t('card.photo', { name: product.name })
+                }
                 theme={theme}
                 style={{ width, height, backgroundColor: REEL_FALLBACK }}
                 priority={active && index === 0}
@@ -343,24 +382,30 @@ function Reel({
       </View>
       <View pointerEvents="none" style={styles.bottomScrim} />
 
-      {/* Media dots */}
-      {media.length > 1 && (
-        <View style={styles.dots} pointerEvents="none">
-          {media.map((m, i) => (
-            <View
-              key={m.id}
-              style={[
-                styles.dot,
-                { backgroundColor: i === mediaIndex ? '#fff' : 'rgba(255,255,255,0.5)' },
-                i === mediaIndex && { width: 16 },
-              ]}
-            />
-          ))}
-        </View>
-      )}
+      {/* Gallery navigation (same as the product page) */}
+      <GalleryArrows
+        count={count}
+        theme={theme}
+        prevLabel={t('product.prevImage')}
+        nextLabel={t('product.nextImage')}
+        onStep={step}
+        {...reelArrows(railTop)}
+      />
+      <GalleryCounter
+        index={mediaIndex}
+        count={count}
+        label={t('product.imagePosition', { n: mediaIndex + 1, total: count })}
+        top={COUNTER_TOP}
+      />
 
       {/* Right action rail */}
-      <View style={styles.rail}>
+      <View
+        style={styles.rail}
+        onLayout={(e) => {
+          const y = Math.round(e.nativeEvent.layout.y);
+          if (y !== railTop) setRailTop(y);
+        }}
+      >
         <RailBtn
           icon="heart"
           tint={liked ? '#ff4d6d' : '#fff'}
@@ -541,15 +586,6 @@ const styles = StyleSheet.create({
     height: 360,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  dots: {
-    position: 'absolute',
-    top: 100,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    gap: 5,
-    zIndex: 15,
-  },
-  dot: { width: 6, height: 6, borderRadius: 3 },
   rail: { position: 'absolute', right: 10, bottom: 150, alignItems: 'center', gap: 20, zIndex: 15 },
   railBtn: { alignItems: 'center', gap: 4 },
   railIcon: {

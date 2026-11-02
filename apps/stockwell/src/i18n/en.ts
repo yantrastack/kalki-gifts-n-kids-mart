@@ -257,9 +257,44 @@ export const en = {
   },
 
   // Product media tiles (Media tab).
+  // Shared by the Add product popup and the product Media tab (YAN-109).
   media: {
     unavailable: 'Image unavailable',
     videoUnavailable: 'Video unavailable',
+    title: 'Photos & videos',
+    help: 'Shown to customers in the storefront app. The first photo is the cover. Drag to reorder, or use the arrow buttons. Photos: JPG, PNG or WebP, at least {min} px on the short side, up to {photoMb} MB. Videos: MP4, MOV or WebM, up to {videoMb} MB.',
+    add: 'Add photos or videos',
+    uploading: 'Uploading…',
+    uploaded_one: 'Uploaded {count} file',
+    uploaded_other: 'Uploaded {count} files',
+    uploadFailed: 'Upload failed: {error}',
+    removed: 'Media removed',
+    removeFailed: 'Could not remove it. Please try again.',
+    reordered: 'New order saved',
+    reorderFailed: 'Could not save the new order. Please try again.',
+    empty: 'No media yet. Upload photos or a short video of this product.',
+    cover: 'Cover',
+    video: 'Video',
+    photoN: 'Photo {n}',
+    videoN: 'Video {n}',
+    setCover: 'Set as cover',
+    moveEarlier: 'Move earlier',
+    moveLater: 'Move later',
+    remove: 'Remove',
+    photoCount: 'Photos: {n} / {min} minimum',
+    needMore_one: 'Add {count} more photo to publish this product. Videos don’t count.',
+    needMore_other: 'Add {count} more photos to publish this product. Videos don’t count.',
+    enough: 'Enough photos to publish.',
+    needsPhotos: 'Needs photos ({n}/{min})',
+    needsPhotosHint: 'Live, but has fewer than {min} photos. Add more from its Media tab.',
+    filterAll: 'All photo states',
+    filterNeeds: 'Needs photos',
+    problem: {
+      unsupported: '{name}: use JPG, PNG or WebP photos, or MP4, MOV or WebM videos.',
+      tooLarge: '{name} is larger than {limitMb} MB.',
+      notAnImage: '{name} isn’t a valid JPG, PNG or WebP photo.',
+      tooSmall: '{name} is {width}×{height} px. Photos need at least {min} px on the short side.',
+    },
   },
 
   // Extra sections in the Add product popup and the product Gifting tab.
@@ -267,15 +302,6 @@ export const en = {
     customize: 'Customize',
     hideCustomize: 'Hide customization',
     publishing: 'Publishing…',
-    mediaTitle: 'Photos & videos',
-    mediaHelp:
-      'Shown to customers in the storefront app. The first item is the cover. Images (JPG/PNG/WebP/GIF) and videos (MP4/MOV/WebM), up to 50 MB each.',
-    addFiles: 'Add photos or videos',
-    cover: 'Cover',
-    video: 'Video',
-    removeFile: 'Remove file',
-    unsupportedFile: '{name} is not a supported image or video',
-    fileTooLarge: '{name} is larger than 50 MB',
     mediaFailed: 'Product created, but uploading its photos/videos failed: {error}',
     giftTitle: 'Gift finder details',
     giftHelp:
@@ -310,12 +336,16 @@ export const en = {
       price: 'Retail price',
       gstRate: 'GST rate',
       hsnCode: 'HSN code',
+      photos: 'At least {min} photos',
     },
     activate: 'Activate',
     activating: 'Activating…',
     activated: '“{name}” is now active in the customer app.',
-    activatedNoStock: 'Activated “{name}”, but it won’t appear in the customer app until it has stock.',
+    activatedNoStock:
+      'Activated “{name}”, but it won’t appear in the customer app until it has stock.',
     cantActivate: 'Can’t activate “{name}” yet. Missing: {fields}.',
+    savedNotPublished:
+      'Saved “{name}” as a draft, but it can’t be published yet. Missing: {fields}. Add them, then activate it.',
     activateFailed: 'Could not activate “{name}”. Please try again.',
   },
 
