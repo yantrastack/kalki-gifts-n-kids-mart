@@ -15,6 +15,8 @@ export const te: Dict = {
   header: {
     cart: 'మీ కార్ట్',
     findGift: 'బహుమతిని కనుగొనండి',
+    back: 'వెనుకకు',
+    discover: 'డిస్కవర్ తెరవండి',
   },
 
   error: {
@@ -34,6 +36,21 @@ export const te: Dict = {
     view: '{name} చూడండి, {price}',
     photo: '{name} ఫోటో',
     noPhoto: 'ఇంకా ఫోటో లేదు',
+  },
+
+  category: {
+    accessories: 'యాక్సెసరీలు',
+    candles: 'కొవ్వొత్తులు',
+    chocolates: 'చాక్లెట్లు',
+    festive: 'పండుగ',
+    fragrance: 'సుగంధాలు',
+    gourmet: 'గౌర్మెట్',
+    'home-decor': 'గృహాలంకరణ',
+    jewelry: 'ఆభరణాలు',
+    personalized: 'వ్యక్తిగతీకరించినవి',
+    plants: 'మొక్కలు',
+    stationery: 'స్టేషనరీ',
+    toys: 'బొమ్మలు',
   },
 
   badge: {
@@ -80,6 +97,23 @@ export const te: Dict = {
     details: 'వివరాలు',
     addToCart: 'కార్ట్‌కు జోడించండి',
     related: 'ఇలాంటివి మరిన్ని',
+    feed: 'ఉత్పత్తి రీల్స్',
+    categories: 'వర్గాలు',
+    close: 'డిస్కవర్ మూసివేయండి',
+    soundOn: 'శబ్దం ఆన్ చేయండి',
+    soundOff: 'శబ్దం ఆఫ్ చేయండి',
+    cart_one: 'కార్ట్, {count} వస్తువు',
+    cart_other: 'కార్ట్, {count} వస్తువులు',
+    like: '{name} ను ఇష్టపడండి',
+    share: '{name} ను షేర్ చేయండి',
+    buyNow: '{name} ను ఇప్పుడే కొనండి',
+    detailsFor: '{name} వివరాలు',
+    added: 'కార్ట్‌కు జోడించబడింది',
+    maxInCart: 'స్టాక్‌లో ఉన్న మొత్తం {count} ఇప్పటికే మీ కార్ట్‌లో ఉన్నాయి',
+    loadMoreError: 'మరిన్ని లోడ్ కాలేదు',
+    end: 'మీరు అన్నీ చూశారు',
+    empty: 'ఇక్కడ ఇంకా రీల్స్ లేవు',
+    showAll: 'అన్నీ చూపించు',
   },
 
   gift: {

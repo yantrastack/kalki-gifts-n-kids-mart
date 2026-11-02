@@ -274,8 +274,16 @@ export type FeedProduct = ShopProduct & {
   related: FeedRelated[];
 };
 
-/** GET /api/shop/feed response (cursor pagination; `nextCursor` null = end). */
-export type FeedResponse = { items: FeedProduct[]; nextCursor: string | null };
+/**
+ * GET /api/shop/feed response (cursor pagination; `nextCursor` null = end).
+ * `categories` lists every category that has at least one reel (ignoring the
+ * category filter), so the storefront builds its chips from real data.
+ */
+export type FeedResponse = {
+  items: FeedProduct[];
+  nextCursor: string | null;
+  categories: string[];
+};
 
 /** Engagement events the storefront records via POST /api/shop/events. */
 export const PRODUCT_EVENT_TYPES = ['view', 'like', 'unlike', 'share', 'buy', 'open'] as const;
