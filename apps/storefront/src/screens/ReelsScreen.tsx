@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { createElement, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,18 @@ import Skeleton from '../components/Skeleton';
 import { useFocusRing } from '../components/focusRing';
 import { pageAt, sizedImageUrl, stepIndex } from '../components/gallery';
 import { GalleryArrows, GalleryCounter } from '../components/GalleryControls';
+import {
+  type AudioPresence,
+  audioPresence,
+  createPlaybackGroup,
+  isHidden,
+  mergePresence,
+  nativeAudioPresence,
+  ReelPlayback,
+  type ReelSound,
+  showSpeaker,
+  watchVisibility,
+} from '../components/videoAudio';
 import {
   clampReel,
   reelDensity,
@@ -58,6 +70,8 @@ const OVERLAY_TOP = BAND_TOP;
 const RELATED_NEEDS = 330;
 
 const isWeb = Platform.OS === 'web';
+/** Shared by every web reel video, so only one ever plays. */
+const reelPlaybackGroup = createPlaybackGroup();
 
 const compact = (n: number) =>
   n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
@@ -128,6 +142,13 @@ export default function ReelsScreen({
   const [error, setError] = useState(false);
   const [active, setActive] = useState(0);
   const [muted, setMuted] = useState(true);
+  // Sound of the slide on screen, reported by the active reel (keyed by product).
+  const [sound, setSound] = useState<{ id: string; sound: ReelSound } | null>(null);
+  const reportSound = useCallback((id: string, s: ReelSound) => {
+    setSound((prev) => (prev?.id === id && prev.sound === s ? prev : { id, sound: s }));
+  }, []);
+  // The browser refused unmuted play: the video plays muted, so the icon must say so.
+  const forceMuted = useCallback(() => setMuted(true), []);
   const [liked, setLiked] = useState<Set<string>>(loadLiked);
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const listRef = useRef<FlatList<FeedProduct>>(null);
@@ -296,6 +317,11 @@ export default function ReelsScreen({
     else onOpenRelated(id);
   };
 
+  // Speaker only for a video (with sound) on the reel in view; not for photos/placeholders.
+  const activeId = items[active]?.id;
+  const speaker =
+    !loading && !error && sound != null && sound.id === activeId && showSpeaker(sound.sound);
+
   const chips: (string | null)[] = [null, ...categories];
   const last = items.length - 1;
 
@@ -329,15 +355,20 @@ export default function ReelsScreen({
             </View>
           )}
         </Btn>
-        <Btn
-          theme={theme}
-          radius={18}
-          onPress={() => setMuted((m) => !m)}
-          label={muted ? t('reels.soundOn') : t('reels.soundOff')}
-          style={styles.topBtn}
-        >
-          <Feather name={muted ? 'volume-x' : 'volume-2'} size={18} color="#fff" />
-        </Btn>
+        {speaker && (
+          <Btn
+            theme={theme}
+            radius={18}
+            onPress={() => setMuted((m) => !m)}
+            // Toggle button: a fixed name plus a pressed state ("Mute, pressed" = muted).
+            // A name that also flipped would contradict the state ("Unmute, not pressed").
+            label={t('reels.mute')}
+            pressed={muted}
+            style={styles.topBtn}
+          >
+            <Feather name={muted ? 'volume-x' : 'volume-2'} size={18} color="#fff" />
+          </Btn>
+        )}
         <Btn
           theme={theme}
           radius={18}
@@ -462,6 +493,8 @@ export default function ReelsScreen({
               onAdd={() => addOne(item)}
               onOpen={() => open(item)}
               onRelated={related}
+              onSound={reportSound}
+              onForcedMute={forceMuted}
             />
           )}
         />
@@ -529,6 +562,8 @@ function Reel({
   onAdd,
   onOpen,
   onRelated,
+  onSound,
+  onForcedMute,
 }: {
   product: FeedProduct;
   width: number;
@@ -548,8 +583,13 @@ function Reel({
   onAdd: () => void;
   onOpen: () => void;
   onRelated: (id: string) => void;
+  /** Reports the on-screen slide's sound while this reel is the active one. */
+  onSound: (productId: string, sound: ReelSound) => void;
+  onForcedMute: () => void;
 }) {
   const [mediaIndex, setMediaIndex] = useState(0);
+  // Sound per video slide (by media id), as each video finds out.
+  const [audio, setAudio] = useState<Record<string, AudioPresence>>({});
   // Top edge of the right action rail, measured on layout. The gallery arrows sit in the
   // clear band between the counter and the rail; at mid-height the right arrow covered the
   // like button and could not be clicked.
@@ -567,6 +607,14 @@ function Reel({
     setMediaIndex(i);
     mediaRef.current?.scrollToIndex({ index: i, animated: true });
   };
+
+  // Tell the screen what the speaker should show for the slide on screen: nothing for a
+  // photo or placeholder, and nothing for a video known to have no audio track.
+  const current = media[mediaIndex];
+  const sound: ReelSound = current?.type === 'video' ? (audio[current.id] ?? 'unknown') : 'none';
+  useEffect(() => {
+    if (active) onSound(product.id, sound);
+  }, [active, sound, product.id, onSound]);
 
   return (
     <View style={{ width, height, backgroundColor: '#000' }}>
@@ -598,6 +646,12 @@ function Reel({
                 height={height}
                 active={active && mediaIndex === index}
                 muted={muted}
+                theme={theme}
+                playLabel={t('reels.playVideo')}
+                onAudio={(a) =>
+                  setAudio((prev) => (prev[item.id] === a ? prev : { ...prev, [item.id]: a }))
+                }
+                onForcedMute={onForcedMute}
               />
             ) : (
               <ProductImage
@@ -803,23 +857,173 @@ function Scrim({ edge, height, max }: { edge: 'top' | 'bottom'; height: number; 
   );
 }
 
-function ReelVideo({
+type ReelVideoProps = {
+  uri: string;
+  width: number;
+  height: number;
+  /** On screen (current reel and current slide): plays; otherwise paused. */
+  active: boolean;
+  muted: boolean;
+  theme: Theme;
+  playLabel: string;
+  /** Whether this video has sound, as soon as it is known. */
+  onAudio: (a: AudioPresence) => void;
+  /** The browser refused unmuted play, so the video now plays muted. */
+  onForcedMute: () => void;
+};
+
+/**
+ * One reel video. On the web it drives a plain `<video>` (the same path as the product page
+ * player: expo-video's web player doesn't reliably start in static exports, and it omits
+ * `playsinline`, so iPhones went fullscreen). Native apps keep expo-video.
+ */
+function ReelVideo(props: ReelVideoProps) {
+  return isWeb ? <WebReelVideo {...props} /> : <NativeReelVideo {...props} />;
+}
+
+function WebReelVideo({
   uri,
   width,
   height,
   active,
   muted,
-}: {
-  uri: string;
-  width: number;
-  height: number;
-  active: boolean;
-  muted: boolean;
-}) {
+  theme,
+  playLabel,
+  onAudio,
+  onForcedMute,
+}: ReelVideoProps) {
+  const ref = useRef<any>(null);
+  const audio = useRef<AudioPresence>('unknown');
+  const cb = useRef({ onAudio, onForcedMute });
+  cb.current = { onAudio, onForcedMute };
+  // Shown when the on-screen video is paused (autoplay refused, or the browser paused it).
+  const [stalled, setStalled] = useState(false);
+  // Play/pause lifecycle: on-screen reel only, visible tab only, one reel at a time.
+  const playback = useRef<ReelPlayback | null>(null);
+
+  // Declared first so the controller exists before the mute/active effects below run.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const doc = typeof document === 'undefined' ? null : document;
+    const ctl = new ReelPlayback(
+      el,
+      { onForcedMute: () => cb.current.onForcedMute(), onStalled: setStalled },
+      reelPlaybackGroup,
+      isHidden(doc),
+    );
+    playback.current = ctl;
+    const check = () => {
+      const next = mergePresence(audio.current, audioPresence(el));
+      if (next !== audio.current) {
+        audio.current = next;
+        cb.current.onAudio(next);
+      }
+    };
+    const onPlay = () => ctl.onPlayEvent();
+    const onPause = () => ctl.onPauseEvent();
+    el.addEventListener('loadeddata', check);
+    el.addEventListener('timeupdate', check);
+    el.addEventListener('play', onPlay);
+    el.addEventListener('pause', onPause);
+    // Hidden tab: pause (unmuted video keeps playing in background tabs); resume on return
+    // only if it was playing.
+    const unwatch = watchVisibility(doc, (hidden) => ctl.setHidden(hidden));
+    return () => {
+      unwatch();
+      el.removeEventListener('loadeddata', check);
+      el.removeEventListener('timeupdate', check);
+      el.removeEventListener('play', onPlay);
+      el.removeEventListener('pause', onPause);
+      ctl.dispose();
+      if (playback.current === ctl) playback.current = null;
+    };
+  }, []);
+
+  // Mute follows the speaker button. Set before play() so the first attempt uses it.
+  useEffect(() => {
+    const el = ref.current;
+    if (el) el.muted = muted;
+  }, [muted]);
+
+  // Only the on-screen video plays (and makes sound); off-screen ones are paused.
+  useEffect(() => {
+    playback.current?.setActive(active);
+    if (active && audio.current !== 'unknown') cb.current.onAudio(audio.current);
+  }, [active]);
+
+  // The play button: a tap, so play() runs inside the user gesture.
+  const start = useCallback(() => {
+    void playback.current?.start();
+  }, []);
+
+  const video = createElement('video', {
+    ref,
+    src: uri,
+    muted: true,
+    loop: true,
+    playsInline: true,
+    preload: 'metadata',
+    style: { width, height, objectFit: 'cover', display: 'block', backgroundColor: '#000' },
+  });
+
+  return (
+    <View style={{ width, height }}>
+      {video}
+      {active && stalled && (
+        <View style={styles.playWrap} pointerEvents="box-none">
+          <Btn
+            theme={theme}
+            radius={34}
+            onPress={start}
+            label={playLabel}
+            style={[styles.playBtn, { backgroundColor: theme.accent }]}
+          >
+            <Feather name="play" size={30} color="#fff" style={{ marginLeft: 4 }} />
+          </Btn>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function NativeReelVideo({ uri, width, height, active, muted, onAudio }: ReelVideoProps) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.muted = true;
   });
+  const audioCb = useRef(onAudio);
+  audioCb.current = onAudio;
+  const audio = useRef<AudioPresence>('unknown');
+  useEffect(() => {
+    let loaded = false;
+    const report = (audioTracks: number, videoTracks: number) => {
+      const next = mergePresence(
+        audio.current,
+        nativeAudioPresence({ platform: Platform.OS, loaded, audioTracks, videoTracks }),
+      );
+      if (next !== audio.current) {
+        audio.current = next;
+        audioCb.current(next);
+      }
+    };
+    // An empty track list is only conclusive after load, and only on Android (see
+    // nativeAudioPresence); until then the speaker stays.
+    const onLoad = player.addListener('sourceLoad', (e) => {
+      loaded = true;
+      report(e.availableAudioTracks.length, e.availableVideoTracks.length);
+    });
+    const onTracks = player.addListener('availableAudioTracksChange', (e) =>
+      report(e.availableAudioTracks.length, player.availableVideoTracks?.length ?? 0),
+    );
+    // The source may have loaded before these listeners were attached.
+    loaded = player.status === 'readyToPlay';
+    report(player.availableAudioTracks?.length ?? 0, player.availableVideoTracks?.length ?? 0);
+    return () => {
+      onLoad.remove();
+      onTracks.remove();
+    };
+  }, [player]);
   useEffect(() => {
     player.muted = muted;
   }, [muted, player]);
@@ -1038,6 +1242,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
   feedNoteText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  playWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  playBtn: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   toast: {
     position: 'absolute',
     top: 148, // under the chips and the photo counter

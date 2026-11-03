@@ -17,6 +17,7 @@ yarn.lock
 .env
 .env.local
 
+settings.json
 # runtime product media (apps/stockwell/uploads)
 /apps/stockwell/uploads/
 
