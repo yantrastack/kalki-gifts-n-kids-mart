@@ -19,6 +19,8 @@ import {
   problemMessage,
   screenFiles,
 } from '@/components/ProductMediaGrid';
+import MediaPreview from '@/components/MediaPreview';
+import { MediaUploadError, replaceMediaFile, uploadMediaFile } from '@/lib/uploadMedia';
 
 // Live products published before the photo rule (YAN-109) stay live, but are flagged so
 // the shop can add photos. Drafts are blocked from publishing instead.
@@ -1057,6 +1059,18 @@ function ProductDetail({
   );
 }
 
+// One file's upload state in the Media tab progress list (YAN-108). A failed file keeps
+// its File handle so it can be retried without picking it again.
+type UploadEntry = {
+  key: string;
+  name: string;
+  percent: number; // 0–100
+  status: 'uploading' | 'done' | 'error';
+  error?: string;
+  file?: File;
+  replaceId?: string; // set when this entry replaces an existing media item
+};
+
 function MediaTab({
   productId,
   isAdmin,
@@ -1072,12 +1086,44 @@ function MediaTab({
   const [items, setItems] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [uploads, setUploads] = useState<UploadEntry[]>([]);
+  const [preview, setPreview] = useState<{
+    url: string;
+    type: 'image' | 'video';
+    label: string;
+  } | null>(null);
+  const [confirming, setConfirming] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const entrySeq = useRef(0);
 
   const load = () => jget(`/api/products/${productId}/media`).then(setItems);
   useEffect(() => {
     load();
   }, [productId]);
+
+  const patchEntry = (key: string, patch: Partial<UploadEntry>) =>
+    setUploads((us) => us.map((u) => (u.key === key ? { ...u, ...patch } : u)));
+
+  // Uploads one file with progress; when `replaceId` is set it replaces that item in place.
+  const runEntry = async (entry: UploadEntry) => {
+    patchEntry(entry.key, { status: 'uploading', percent: 0, error: undefined });
+    const onProgress = (loaded: number, total: number) =>
+      patchEntry(entry.key, { percent: total ? Math.round((loaded / total) * 100) : 0 });
+    try {
+      if (entry.replaceId)
+        await replaceMediaFile(productId, entry.replaceId, entry.file!, onProgress);
+      else await uploadMediaFile(productId, entry.file!, onProgress);
+      patchEntry(entry.key, { status: 'done', percent: 100 });
+      load();
+      onChanged?.();
+    } catch (e: any) {
+      const msg =
+        e instanceof MediaUploadError && e.problem
+          ? problemMessage(t, e.problem as any)
+          : e.message || t('media.uploadFailedGeneric');
+      patchEntry(entry.key, { status: 'error', error: msg });
+    }
+  };
 
   const upload = async (picked: FileList | null) => {
     if (!picked?.length) return;
@@ -1089,20 +1135,41 @@ function MediaTab({
       const { accepted, problems } = await screenFiles(list);
       setErrors(problems.map((p) => problemMessage(t, p)));
       if (!accepted.length) return;
-      await uploadMedia(productId, accepted);
-      toast({ message: t('media.uploaded', { count: accepted.length }), icon: 'check' });
-      load();
-      onChanged?.();
-    } catch (e: any) {
-      toast({
-        message: t('media.uploadFailed', {
-          error: e?.problem ? problemMessage(t, e.problem) : e.message,
-        }),
-        icon: 'x',
-      });
+      const entries: UploadEntry[] = accepted.map((f) => ({
+        key: `u${++entrySeq.current}`,
+        name: f.name,
+        percent: 0,
+        status: 'uploading',
+        file: f,
+      }));
+      setUploads((us) => [...us.filter((u) => u.status !== 'done'), ...entries]);
+      // One request per file: each reports its own progress and fails on its own.
+      for (const e of entries) await runEntry(e);
     } finally {
       setBusy(false);
     }
+  };
+
+  // Replace one item in place: same position, same cover status (YAN-108).
+  const replace = async (index: number, file: File) => {
+    const m = items[index];
+    if (!m) return;
+    const { accepted, problems } = await screenFiles([file]);
+    if (problems.length) {
+      setErrors(problems.map((p) => problemMessage(t, p)));
+      return;
+    }
+    if (!accepted.length) return;
+    const entry: UploadEntry = {
+      key: `u${++entrySeq.current}`,
+      name: file.name,
+      percent: 0,
+      status: 'uploading',
+      file,
+      replaceId: m.id,
+    };
+    setUploads((us) => [...us.filter((u) => u.status !== 'done'), entry]);
+    await runEntry(entry);
   };
 
   const remove = async (index: number) => {
@@ -1134,6 +1201,8 @@ function MediaTab({
     }
   };
 
+  const activeUploads = uploads.filter((u) => u.status !== 'done');
+
   return (
     <div className="dp-section">
       <h4>{t('media.title')}</h4>
@@ -1161,18 +1230,130 @@ function MediaTab({
           ))}
         </ul>
       )}
+      {activeUploads.length > 0 && (
+        <ul style={{ marginTop: 10, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
+          {activeUploads.map((u) => (
+            <li key={u.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+              <span
+                style={{
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {u.name}
+              </span>
+              {u.status === 'uploading' && (
+                <>
+                  <progress
+                    value={u.percent}
+                    max={100}
+                    style={{ width: 120 }}
+                    aria-label={t('media.uploading')}
+                  />
+                  <span className="muted tiny">{u.percent}%</span>
+                </>
+              )}
+              {u.status === 'error' && (
+                <>
+                  <span className="field-error tiny" role="alert" style={{ margin: 0 }}>
+                    {u.error}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => runEntry(u)}
+                  >
+                    <Icon name="refresh" size={11} /> {t('media.retry')}
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    aria-label={t('media.dismiss')}
+                    title={t('media.dismiss')}
+                    onClick={() => setUploads((us) => us.filter((x) => x.key !== u.key))}
+                  >
+                    <Icon name="x" size={11} />
+                  </button>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       <PhotoCount photos={photoCount(items)} />
       <ProductMediaGrid
         items={items.map((m) => ({ key: m.id, url: m.url, type: m.type }))}
         disabled={busy}
         onMove={move}
-        onRemove={isAdmin ? remove : undefined}
+        onRemove={isAdmin ? (i) => setConfirming(i) : undefined}
+        onReplace={isAdmin ? replace : undefined}
+        onPreview={(i) => {
+          const m = items[i];
+          if (!m) return;
+          // Same per-kind numbering the grid uses for its aria labels ("Video 2").
+          const n = items.slice(0, i + 1).filter((x) => x.type === m.type).length;
+          setPreview({
+            url: m.url,
+            type: m.type,
+            label: m.type === 'video' ? t('media.videoN', { n }) : t('media.photoN', { n }),
+          });
+        }}
       />
       {!items.length && (
         <p className="muted tiny" style={{ padding: '16px 0' }}>
           {t('media.empty')}
         </p>
       )}
+      {preview && (
+        <MediaPreview
+          url={preview.url}
+          type={preview.type}
+          label={preview.label}
+          onClose={() => setPreview(null)}
+        />
+      )}
+      <UI.Modal open={confirming != null} onClose={() => setConfirming(null)} small>
+        <div className="confirm" role="alertdialog" aria-labelledby="media-confirm-title">
+          <button
+            type="button"
+            className="icon-btn confirm-close"
+            aria-label={t('media.cancelRemove')}
+            onClick={() => setConfirming(null)}
+          >
+            <Icon name="x" size={16} />
+          </button>
+          <div className="confirm-icon">
+            <Icon name="trash" size={22} />
+          </div>
+          <div id="media-confirm-title" className="confirm-title">
+            {t('media.removeConfirmTitle')}
+          </div>
+          <ul className="confirm-points">
+            <li>
+              <Icon name="alert" size={16} />
+              <span>{t('media.removeConfirmBody')}</span>
+            </li>
+          </ul>
+          <div className="confirm-actions">
+            <button type="button" className="btn btn-secondary" onClick={() => setConfirming(null)}>
+              {t('media.cancelRemove')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => {
+                const i = confirming;
+                setConfirming(null);
+                if (i != null) remove(i);
+              }}
+            >
+              <Icon name="trash" size={12} /> {t('media.remove')}
+            </button>
+          </div>
+        </div>
+      </UI.Modal>
     </div>
   );
 }

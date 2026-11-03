@@ -11,8 +11,14 @@ describe('/api/products/[id]/media', () => {
   let route: any;
   let db: any;
   let schema: any;
+  let adminCookie: string;
 
   const params = (id: string) => ({ params: Promise.resolve({ id }) });
+  // Media mutations are admin-only (YAN-108); sign a real admin session for the writes.
+  const authed = (init: RequestInit): RequestInit => ({
+    ...init,
+    headers: { ...(init.headers || {}), cookie: adminCookie },
+  });
   const addMedia = async (productId: string, ids: string[]) => {
     for (const [i, id] of ids.entries())
       await db.insert(schema.productMedia).values({
@@ -25,17 +31,20 @@ describe('/api/products/[id]/media', () => {
   };
   const patch = (id: string, body: unknown) =>
     route.PATCH(
-      new NextRequest(`http://localhost/api/products/${id}/media`, {
-        method: 'PATCH',
-        body: JSON.stringify(body),
-      }),
+      new NextRequest(
+        `http://localhost/api/products/${id}/media`,
+        authed({ method: 'PATCH', body: JSON.stringify(body) }),
+      ),
       params(id),
     );
   const upload = (id: string, files: File[]) => {
     const fd = new FormData();
     for (const f of files) fd.append('files', f);
     return route.POST(
-      new NextRequest(`http://localhost/api/products/${id}/media`, { method: 'POST', body: fd }),
+      new NextRequest(
+        `http://localhost/api/products/${id}/media`,
+        authed({ method: 'POST', body: fd }),
+      ),
       params(id),
     );
   };
@@ -43,6 +52,14 @@ describe('/api/products/[id]/media', () => {
   beforeAll(async () => {
     const { migrate } = await import('drizzle-orm/libsql/migrator');
     ({ db, schema } = await import('@/db/client'));
+    const { createSession, SESSION_COOKIE } = await import('@/lib/session');
+    const token = await createSession({
+      sub: 'u-admin',
+      email: 'admin@test',
+      name: 'Admin',
+      role: 'admin',
+    });
+    adminCookie = `${SESSION_COOKIE}=${token}`;
     await migrate(db, { migrationsFolder: path.resolve(process.cwd(), 'drizzle') });
     for (const id of ['pa', 'pb'])
       await db.insert(schema.products).values({ id, name: id, sku: id.toUpperCase() } as any);
@@ -121,6 +138,37 @@ describe('/api/products/[id]/media', () => {
         await route.GET(new NextRequest('http://localhost/api/products/pb/media'), params('pb'))
       ).json();
       expect(rows.map((m: any) => m.id)).toEqual(['b1']);
+    });
+  });
+
+  describe('permissions (YAN-108): mutations are admin-only', () => {
+    it('POST without a session is refused and stores nothing', async () => {
+      const fd = new FormData();
+      fd.append('files', new File([fakePng(1000, 1000)], 'ok.png', { type: 'image/png' }));
+      const res = await route.POST(
+        new NextRequest('http://localhost/api/products/pb/media', { method: 'POST', body: fd }),
+        params('pb'),
+      );
+      expect(res.status).toBe(403);
+      const rows = await (
+        await route.GET(new NextRequest('http://localhost/api/products/pb/media'), params('pb'))
+      ).json();
+      expect(rows.map((m: any) => m.id)).toEqual(['b1']);
+    });
+
+    it('PATCH without a session is refused and the order is unchanged', async () => {
+      const res = await route.PATCH(
+        new NextRequest('http://localhost/api/products/pa/media', {
+          method: 'PATCH',
+          body: JSON.stringify({ order: ['a2', 'a1', 'a3'] }),
+        }),
+        params('pa'),
+      );
+      expect(res.status).toBe(403);
+      const rows = await (
+        await route.GET(new NextRequest('http://localhost/api/products/pa/media'), params('pa'))
+      ).json();
+      expect(rows.map((m: any) => m.id)).toEqual(['a3', 'a1', 'a2']);
     });
   });
 });

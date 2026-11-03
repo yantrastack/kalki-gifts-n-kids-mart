@@ -11,6 +11,7 @@ import {
   problemMessage,
   screenFiles,
 } from './ProductMediaGrid';
+import MediaPreview from './MediaPreview';
 
 // Photo/video chooser for a product that doesn't exist yet: the files are held here and
 // uploaded by the caller once the product has an id. Files are checked with the same
@@ -38,6 +39,11 @@ export default function MediaPicker({
   const [errors, setErrors] = useState<string[]>([]);
   const [checking, setChecking] = useState(false);
   const [urls, setUrls] = useState<string[]>([]);
+  const [preview, setPreview] = useState<{
+    url: string;
+    type: 'image' | 'video';
+    label: string;
+  } | null>(null);
 
   useEffect(() => {
     const made = files.map((f) => URL.createObjectURL(f));
@@ -99,7 +105,31 @@ export default function MediaPicker({
         disabled={disabled}
         onMove={(from, to) => onChange(moveItem(files, from, to))}
         onRemove={(i) => onChange(files.filter((_, j) => j !== i))}
+        onPreview={(i) => {
+          const f = files[i];
+          if (f && urls[i])
+            setPreview({
+              url: urls[i],
+              type: kindOf(f),
+              label:
+                kindOf(f) === 'video'
+                  ? t('media.videoN', {
+                      n: files.slice(0, i + 1).filter((x) => kindOf(x) === 'video').length,
+                    })
+                  : t('media.photoN', {
+                      n: files.slice(0, i + 1).filter((x) => kindOf(x) === 'image').length,
+                    }),
+            });
+        }}
       />
+      {preview && (
+        <MediaPreview
+          url={preview.url}
+          type={preview.type}
+          label={preview.label}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </div>
   );
 }
