@@ -4,6 +4,7 @@ import { and, eq, asc } from 'drizzle-orm';
 import crypto from 'crypto';
 import { checkMediaFile, checkReorder, declaredType, type MediaProblem } from '@/lib/mediaRules';
 import { storeMedia, removeMedia } from '@/lib/storage';
+import { isAdmin } from '@/lib/guard';
 
 // English fallback for API clients; the admin shows its own translated text for `problem`.
 const problemText = (p: MediaProblem): string => {
@@ -31,8 +32,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
   return NextResponse.json(rows);
 }
 
-// Upload one or more image/video files (multipart form, field name "files").
+// Upload one or more image/video files (multipart form, field name "files"). Admin-only:
+// the admin UI only offers upload/remove to admins, and the API enforces the same rule.
 export async function POST(req: NextRequest, { params }: Params) {
+  if (!(await isAdmin(req))) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
   const { id } = await params;
   const product = await db.select().from(schema.products).where(eq(schema.products.id, id)).get();
   if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
@@ -82,6 +85,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 // Reorder a product's media: body `{ order: [mediaId, ...] }` listing every one of its
 // media ids once. The first becomes the cover ("Set as cover" = move it to the front).
 export async function PATCH(req: NextRequest, { params }: Params) {
+  if (!(await isAdmin(req))) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
   const { id } = await params;
   const body = await req.json().catch(() => null);
   const existing = await db

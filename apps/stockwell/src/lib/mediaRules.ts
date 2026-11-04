@@ -10,6 +10,9 @@ import { MIN_PHOTO_SIDE } from '@stockwell/shared';
 export const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'] as const;
 export const UPLOAD_ACCEPT = [...PHOTO_TYPES, ...VIDEO_TYPES].join(',');
+/** File-picker `accept` for a single type — used by the per-type replace pickers. */
+export const PHOTO_ACCEPT = PHOTO_TYPES.join(',');
+export const VIDEO_ACCEPT = VIDEO_TYPES.join(',');
 
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB
 export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -102,7 +105,8 @@ export type MediaProblem =
   | { code: 'unsupported'; name: string }
   | { code: 'tooLarge'; name: string; limitMb: number }
   | { code: 'notAnImage'; name: string }
-  | { code: 'tooSmall'; name: string; width: number; height: number; min: number };
+  | { code: 'tooSmall'; name: string; width: number; height: number; min: number }
+  | { code: 'typeMismatch'; name: string; expected: 'image' | 'video' };
 
 // Flat (not a union): this app compiles without strictNullChecks, where `!res.ok` doesn't narrow.
 export type MediaCheck = {

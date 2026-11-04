@@ -1,11 +1,13 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { MIN_PHOTO_SIDE, MIN_PRODUCT_PHOTOS } from '@stockwell/shared';
 import { Icon } from './Icon';
 import { useI18n } from '@/i18n';
 import {
   MAX_PHOTO_BYTES,
   MAX_VIDEO_BYTES,
+  PHOTO_ACCEPT,
+  VIDEO_ACCEPT,
   checkMediaFile,
   declaredType,
   type MediaProblem,
@@ -81,17 +83,23 @@ export function PhotoCount({ photos }: { photos: number }) {
  * Media tiles in their saved order. The first tile is the cover. Reorder by dragging a
  * tile, or with the ← / → buttons (keyboard and touch); "Set as cover" moves a tile to the
  * front. `onMove(from, to)` gets the indexes; the parent saves the new order.
+ * `onPreview(index)` opens a play-with-sound preview; `onReplace(index)` swaps the file in
+ * place. Both are optional — pass them only where they make sense.
  */
 export function ProductMediaGrid({
   items,
   onMove,
   onRemove,
+  onPreview,
+  onReplace,
   disabled = false,
   canEdit = true,
 }: {
   items: GridItem[];
   onMove: (from: number, to: number) => void;
   onRemove?: (index: number) => void;
+  onPreview?: (index: number) => void;
+  onReplace?: (index: number, file: File) => void;
   disabled?: boolean;
   canEdit?: boolean;
 }) {
@@ -99,6 +107,7 @@ export function ProductMediaGrid({
   const [failed, setFailed] = useState<Set<string>>(new Set());
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
+  const replaceRef = useRef<{ index: number; input: HTMLInputElement } | null>(null);
   if (!items.length) return null;
 
   // Numbered per kind ("Photo 2", "Video 1") for button labels and alt text.
@@ -176,14 +185,55 @@ export function ProductMediaGrid({
                 {m.type === 'video' ? t('media.videoUnavailable') : t('media.unavailable')}
               </div>
             ) : m.type === 'video' ? (
-              <video
-                src={m.url}
-                muted
-                playsInline
-                aria-label={label}
-                onError={() => setFailed((s) => new Set(s).add(m.key))}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
+              onPreview ? (
+                <button
+                  type="button"
+                  aria-label={`${t('media.preview')}: ${label}`}
+                  title={`${t('media.preview')}: ${label}`}
+                  onClick={() => onPreview(i)}
+                  style={{
+                    padding: 0,
+                    border: 0,
+                    width: '100%',
+                    height: '100%',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    background: '#000',
+                  }}
+                >
+                  <video
+                    src={m.url}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    aria-hidden
+                    onError={() => setFailed((s) => new Set(s).add(m.key))}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      background: 'rgba(0,0,0,0.25)',
+                    }}
+                  >
+                    <Icon name="play" size={28} />
+                  </span>
+                </button>
+              ) : (
+                <video
+                  src={m.url}
+                  muted
+                  playsInline
+                  aria-label={label}
+                  onError={() => setFailed((s) => new Set(s).add(m.key))}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              )
             ) : (
               <img
                 src={m.url}
@@ -217,6 +267,27 @@ export function ProductMediaGrid({
                 onClick={() => onRemove(i)}
                 style={{ top: 4, right: 4 }}
               />
+            )}
+            {onReplace && canEdit && (
+              <>
+                <TileButton
+                  icon="refresh"
+                  label={`${t('media.replace')}: ${label}`}
+                  disabled={disabled}
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = m.type === 'video' ? VIDEO_ACCEPT : PHOTO_ACCEPT;
+                    input.onchange = () => {
+                      const f = input.files?.[0];
+                      if (f) onReplace(i, f);
+                    };
+                    replaceRef.current = { index: i, input };
+                    input.click();
+                  }}
+                  style={{ top: 4, right: onRemove ? 34 : 4 }}
+                />
+              </>
             )}
             {editable && (
               <div
