@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { deriveStatus } from '@/lib/status';
 import { desc, eq } from 'drizzle-orm';
+import { withCover } from '@/lib/productPhotos';
 
 export async function GET() {
   const rows = await db
@@ -9,7 +10,7 @@ export async function GET() {
     .from(schema.stockMoves)
     .orderBy(desc(schema.stockMoves.id))
     .limit(100);
-  return NextResponse.json(rows);
+  return NextResponse.json(await withCover(rows, 'productId'));
 }
 
 // Record a stock movement and adjust the product's stock atomically.

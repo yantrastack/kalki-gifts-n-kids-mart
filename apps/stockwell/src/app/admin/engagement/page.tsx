@@ -98,7 +98,7 @@ export default function EngagementPage() {
                 <tr key={p.id}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <ProductThumb name={p.name} size={30} />
+                      <ProductThumb name={p.name} size={30} src={p.cover} />
                       <div>
                         <div style={{ fontWeight: 500 }}>{p.name}</div>
                         <div className="muted tiny">{p.category}</div>

@@ -3,6 +3,7 @@ import { db, schema } from '@/db/client';
 import { deriveStatus } from '@/lib/status';
 import { paymentsByInvoice, toInvoiceView } from '@/lib/invoiceQueries';
 import { and, asc, eq } from 'drizzle-orm';
+import { withCover } from '@/lib/productPhotos';
 
 class StockConflict extends Error {
   constructor(productName: string) {
@@ -27,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   ]);
   return NextResponse.json({
     ...toInvoiceView(inv, pays),
-    lines,
+    lines: await withCover(lines, 'productId'),
     payments: pays.map((p) => ({ ...p, amount: p.amountPaise / 100 })),
   });
 }

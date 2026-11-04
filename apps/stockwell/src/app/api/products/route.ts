@@ -10,6 +10,7 @@ import {
 } from '@/lib/catalog';
 import { like, or, eq, and, desc, sql } from 'drizzle-orm';
 import { csvToList, productBadgeKey } from '@stockwell/shared';
+import { coverOf, loadGallery } from '@/lib/productPhotos';
 
 // Gift tags arrive as a CSV string (or a list); store them trimmed, lower-cased and de-duplicated.
 const giftCsv = (v: unknown): string | null => {
@@ -49,14 +50,23 @@ export async function GET(req: NextRequest) {
     .orderBy(desc(schema.products.updatedAt));
   const filtered = sellable ? rows.filter((p) => isSellable(p as any)) : rows;
 
-  // Photo count per product, so the admin can flag products with too few photos.
-  const counts = await db
-    .select({ productId: schema.productMedia.productId, n: sql<number>`count(*)` })
-    .from(schema.productMedia)
-    .where(eq(schema.productMedia.type, 'image'))
-    .groupBy(schema.productMedia.productId);
-  const photos = new Map(counts.map((c) => [c.productId, Number(c.n)]));
-  return NextResponse.json(filtered.map((p) => ({ ...p, photoCount: photos.get(p.id) ?? 0 })));
+  // Photos per product: the count lets the admin flag products with too few, `photos` (in
+  // media order) feeds the grid carousel, and `cover` is the thumbnail shown on every page.
+  const { photos, gallery } = await loadGallery();
+  return NextResponse.json(
+    filtered.map((p) => {
+      const media = gallery.get(p.id) ?? [];
+      return {
+        ...p,
+        photoCount: photos.get(p.id)?.length ?? 0,
+        photos: photos.get(p.id) ?? [],
+        cover: coverOf(photos, p.id),
+        // Photos and videos together, in media order, for the grid carousel.
+        gallery: media,
+        videoCount: media.filter((m) => m.type === 'video').length,
+      };
+    }),
+  );
 }
 
 export async function POST(req: NextRequest) {

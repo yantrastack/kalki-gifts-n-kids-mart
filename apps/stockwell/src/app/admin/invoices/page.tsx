@@ -429,10 +429,15 @@ export default function InvoicesPage() {
                     {detail.lines.map((l: any) => (
                       <tr key={l.id}>
                         <td>
-                          {l.name}
-                          <div className="muted tiny mono">
-                            {l.sku}
-                            {l.hsnCode ? ` · HSN ${l.hsnCode}` : ''}
+                          <div className="row" style={{ gap: 10 }}>
+                            <UI.ProductThumb name={l.name} size={30} src={l.cover} />
+                            <div>
+                              {l.name}
+                              <div className="muted tiny mono">
+                                {l.sku}
+                                {l.hsnCode ? ` · HSN ${l.hsnCode}` : ''}
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td className="col-num mono">{l.qty}</td>

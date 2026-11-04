@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { desc } from 'drizzle-orm';
+import { coverOf, loadPhotos } from '@/lib/productPhotos';
 
 export async function GET() {
   const products = await db.select().from(schema.products).all();
@@ -26,10 +27,17 @@ export async function GET() {
     .map(([name, v], i) => ({ name, value: v / catTotal, color: palette[i % palette.length] }));
 
   // top products by retail value on hand
+  const photos = await loadPhotos();
   const topProducts = [...products]
     .sort((a, b) => b.price * b.stock - a.price * a.stock)
     .slice(0, 6)
-    .map((p) => ({ name: p.name, value: Math.round(p.price * p.stock), units: p.stock }));
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      cover: coverOf(photos, p.id),
+      value: Math.round(p.price * p.stock),
+      units: p.stock,
+    }));
 
   // movement volume by type
   const typeMap: Record<string, number> = {};

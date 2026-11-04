@@ -137,15 +137,20 @@ function PODetailModal({ poId, onClose, onChanged }: any) {
                   {po.lines.map((l: any) => (
                     <tr key={l.id} style={{ cursor: 'default' }}>
                       <td>
-                        {l.product}
-                        <span className="muted tiny mono" style={{ marginLeft: 6 }}>
-                          {l.sku}
-                        </span>
-                        {!!l.isNew && (
-                          <span className="badge badge-info" style={{ marginLeft: 6 }}>
-                            new
-                          </span>
-                        )}
+                        <div className="row" style={{ gap: 10 }}>
+                          <UI.ProductThumb name={l.product} size={28} src={l.cover} />
+                          <div>
+                            {l.product}
+                            <span className="muted tiny mono" style={{ marginLeft: 6 }}>
+                              {l.sku}
+                            </span>
+                            {!!l.isNew && (
+                              <span className="badge badge-info" style={{ marginLeft: 6 }}>
+                                new
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="col-num mono">{l.qty}</td>
                       <td className="col-num mono">{l.free || '—'}</td>

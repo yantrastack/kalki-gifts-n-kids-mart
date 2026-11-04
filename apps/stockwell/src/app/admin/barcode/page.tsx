@@ -91,8 +91,12 @@ export default function BarcodePage() {
                 key={p.id}
                 onClick={() => setSelected(p)}
                 className="bc-item"
-                style={{ background: selected?.id === p.id ? 'var(--bg-active)' : 'transparent' }}
+                style={{
+                  background: selected?.id === p.id ? 'var(--bg-active)' : 'transparent',
+                  gap: 10,
+                }}
               >
+                <UI.ProductThumb name={p.name} size={30} src={p.cover} />
                 <div style={{ minWidth: 0, textAlign: 'left' }}>
                   <div
                     style={{

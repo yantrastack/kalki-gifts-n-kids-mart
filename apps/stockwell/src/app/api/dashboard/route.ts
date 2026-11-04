@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { desc, gte } from 'drizzle-orm';
+import { withCover } from '@/lib/productPhotos';
 import {
   dailySeries,
   daysAgo,
@@ -92,6 +93,6 @@ export async function GET(req: NextRequest) {
       prevTotal: Math.round(revenue.prevTotal),
     },
     recentOrders,
-    recentMoves: moves,
+    recentMoves: await withCover(moves, 'productId'),
   });
 }

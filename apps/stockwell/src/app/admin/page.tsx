@@ -293,7 +293,11 @@ export default function DashboardPage() {
                       {a.qty > 0 ? '+' : ''}
                       {a.qty}
                     </span>{' '}
-                    · {a.product}
+                    ·{' '}
+                    <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 6 }}>
+                      <UI.ProductThumb name={a.product || '?'} size={22} src={a.cover} />
+                    </span>
+                    {a.product}
                   </div>
                   <div
                     style={{ fontSize: 'var(--t-xs)', color: 'var(--fg-tertiary)', marginTop: 2 }}

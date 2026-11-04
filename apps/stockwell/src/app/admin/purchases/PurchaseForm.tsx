@@ -12,6 +12,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 type Line = {
   key: string;
   productId: string | null; // null = new product
+  cover?: string | null; // cover photo of an existing product
   name: string;
   sku: string;
   category: string;
@@ -73,6 +74,7 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
           (po.lines || []).map((l: any) => ({
             key: `it-${l.id}`,
             productId: l.productId,
+            cover: l.cover,
             name: l.product || '',
             sku: l.sku || '',
             category: '',
@@ -126,6 +128,7 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
         {
           key: `${p.id}-${Date.now()}`,
           productId: p.id,
+          cover: p.cover,
           name: p.name,
           sku: p.sku,
           category: p.category || '',
@@ -403,7 +406,7 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
                     onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <UI.ProductThumb name={p.name} size={30} />
+                    <UI.ProductThumb name={p.name} size={30} src={p.cover} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 500, fontSize: 'var(--t-base)' }}>{p.name}</div>
                       <div className="muted tiny mono">
@@ -452,7 +455,7 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
               >
                 <div className="spread" style={{ marginBottom: 10 }}>
                   <div className="row" style={{ gap: 10, minWidth: 0 }}>
-                    <UI.ProductThumb name={l.name || '?'} size={32} />
+                    <UI.ProductThumb name={l.name || '?'} size={32} src={l.cover} />
                     {l.productId ? (
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 600 }}>{l.name}</div>
