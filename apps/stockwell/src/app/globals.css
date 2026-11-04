@@ -620,6 +620,7 @@ a {
   border-bottom: 1px solid var(--border-subtle);
 }
 .card-title {
+  margin: 0;
   font-weight: 600;
   font-size: var(--t-md);
   letter-spacing: -0.005em;
