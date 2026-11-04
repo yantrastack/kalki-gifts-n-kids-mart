@@ -1188,6 +1188,7 @@ table.dt tbody td.col-mid {
   color: var(--fg-secondary);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  cursor: pointer;
   transition:
     color var(--transition),
     border-color var(--transition);
