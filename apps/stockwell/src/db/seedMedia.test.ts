@@ -126,7 +126,8 @@ describe('seed media through GET /api/shop/products', () => {
       .insert(schema.productMedia)
       .values(seedMediaRows(['p9', 'p10', 'p18']).reverse() as any);
     const { GET } = await import('@/app/api/shop/products/route');
-    body = await (await GET()).json();
+    const { NextRequest } = await import('next/server');
+    body = await (await GET(new NextRequest('http://localhost/api/shop/products'))).json();
   });
 
   it('returns the seeded photo as the product cover', () => {

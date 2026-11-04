@@ -87,7 +87,7 @@ export const productEvents = sqliteTable('product_events', {
   productId: text('product_id')
     .notNull()
     .references(() => products.id, { onDelete: 'cascade' }),
-  type: text('type').notNull(), // view | like | unlike | share | buy | open
+  type: text('type').notNull(), // view | like | unlike | share | buy | open | save | unsave
   sessionId: text('session_id'), // anonymous per-device id, for reach/dedupe
   createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
 });

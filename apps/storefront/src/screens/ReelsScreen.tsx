@@ -19,6 +19,7 @@ import type { FeedProduct } from '@stockwell/shared';
 import { getFeed, mediaUrl, recordEvent, type Product } from '../api';
 import { useI18n } from '../i18n';
 import { useAppWidth } from '../layout';
+import { useWishlist } from '../wishlistStore';
 import { type Theme, money } from '../theme';
 import ProductImage, { ImageFallback } from '../components/ProductImage';
 import ProductBadge from '../components/ProductBadge';
@@ -42,6 +43,7 @@ import {
 import {
   clampReel,
   reelDensity,
+  reelRail,
   reelStepForKey,
   scrimGradient,
   toggleLiked,
@@ -151,6 +153,9 @@ export default function ReelsScreen({
   // The browser refused unmuted play: the video plays muted, so the icon must say so.
   const forceMuted = useCallback(() => setMuted(true), []);
   const [liked, setLiked] = useState<Set<string>>(loadLiked);
+  // Saved (wishlist) state comes from the shared store, so it matches the product cards,
+  // the product page and the header count. It is separate from likes.
+  const wishlist = useWishlist();
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const listRef = useRef<FlatList<FeedProduct>>(null);
   const viewed = useRef<Set<string>>(new Set()); // dedupe view events per session
@@ -287,6 +292,13 @@ export default function ReelsScreen({
         it.id === p.id ? { ...it, likes: Math.max(0, it.likes + (on ? 1 : -1)) } : it,
       ),
     );
+  };
+  // Save only saves: it never likes, adds to the cart or records a like.
+  const toggleSave = (p: FeedProduct) => {
+    const { on, persisted, full } = wishlist.toggle(p);
+    if (full) say(t('wishlist.full'));
+    else if (!persisted) say(t('wishlist.saveFailed'));
+    else say(t(on ? 'wishlist.saved' : 'wishlist.removed'));
   };
   const share = async (p: FeedProduct) => {
     const ok = await onShare(p);
@@ -463,6 +475,7 @@ export default function ReelsScreen({
               active={!hidden && index === active}
               muted={muted}
               liked={liked.has(item.id)}
+              saved={wishlist.has(item.id)}
               theme={theme}
               currency={currency}
               t={t}
@@ -489,6 +502,7 @@ export default function ReelsScreen({
                 ) : null
               }
               onLike={() => toggleLike(item)}
+              onSave={() => toggleSave(item)}
               onShare={() => share(item)}
               onBuy={() => buy(item)}
               onAdd={() => addOne(item)}
@@ -531,7 +545,7 @@ function ReelSkeleton({ theme }: { theme: Theme }) {
           <Skeleton theme={theme} style={{ ...tone, height: 46, borderRadius: 14 }} />
         </View>
         <View style={{ gap: 20, alignItems: 'center' }}>
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <Skeleton
               key={i}
               theme={theme}
@@ -552,12 +566,14 @@ function Reel({
   active,
   muted,
   liked,
+  saved,
   theme,
   currency,
   t,
   categoryLabel,
   footer,
   onLike,
+  onSave,
   onShare,
   onBuy,
   onAdd,
@@ -572,6 +588,8 @@ function Reel({
   active: boolean;
   muted: boolean;
   liked: boolean;
+  /** In the wishlist. */
+  saved: boolean;
   theme: Theme;
   currency: string;
   t: (k: string, p?: any) => string;
@@ -579,6 +597,7 @@ function Reel({
   /** Shown above the info on the last reel: load-more retry or end of feed. */
   footer: ReactNode;
   onLike: () => void;
+  onSave: () => void;
   onShare: () => void;
   onBuy: () => void;
   onAdd: () => void;
@@ -601,6 +620,7 @@ function Reel({
   const low = product.inStock <= 10;
   const density = reelDensity(height);
   const tight = density === 'tight';
+  const rail = reelRail(height);
   const showRelated = product.related.length > 0 && height - OVERLAY_TOP - 16 >= RELATED_NEEDS;
   // Same paging as the product page gallery: arrows (web), counter, swipe.
   const step = (delta: number) => {
@@ -795,7 +815,7 @@ function Reel({
 
         {/* Right action rail */}
         <View
-          style={[styles.rail, { gap: tight ? 6 : density === 'compact' ? 12 : 20 }]}
+          style={[styles.rail, { gap: rail.gap }]}
           onLayout={(e) => {
             const y = OVERLAY_TOP + Math.round(e.nativeEvent.layout.y);
             if (y !== railTop) setRailTop(y);
@@ -803,7 +823,7 @@ function Reel({
         >
           <RailBtn
             theme={theme}
-            size={tight ? 40 : 46}
+            size={rail.size}
             icon={
               // Filled heart when liked (Feather has no filled heart).
               <Ionicons
@@ -812,32 +832,44 @@ function Reel({
                 color={liked ? '#ff4d6d' : '#fff'}
               />
             }
-            label={tight ? null : compact(product.likes)}
+            label={!rail.labels ? null : compact(product.likes)}
             a11y={`${t('reels.like', { name: product.name })}, ${product.likes}`}
             pressed={liked}
             onPress={onLike}
           />
           <RailBtn
             theme={theme}
-            size={tight ? 40 : 46}
+            size={rail.size}
             icon={<Feather name="send" size={25} color="#fff" />}
-            label={tight ? null : compact(product.shares)}
+            label={!rail.labels ? null : compact(product.shares)}
             a11y={`${t('reels.share', { name: product.name })}, ${product.shares}`}
             onPress={onShare}
           />
           <RailBtn
             theme={theme}
-            size={tight ? 40 : 46}
+            size={rail.size}
+            icon={
+              // Filled bookmark when saved (Feather has no filled bookmark).
+              <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={26} color="#fff" />
+            }
+            label={!rail.labels ? null : t(saved ? 'wishlist.savedShort' : 'wishlist.saveShort')}
+            a11y={t(saved ? 'wishlist.remove' : 'wishlist.save', { name: product.name })}
+            pressed={saved}
+            onPress={onSave}
+          />
+          <RailBtn
+            theme={theme}
+            size={rail.size}
             icon={<Feather name="zap" size={25} color="#fff" />}
-            label={tight ? null : t('reels.buy')}
+            label={!rail.labels ? null : t('reels.buy')}
             a11y={t('reels.buyNow', { name: product.name })}
             onPress={onBuy}
           />
           <RailBtn
             theme={theme}
-            size={tight ? 40 : 46}
+            size={rail.size}
             icon={<Feather name="info" size={25} color="#fff" />}
-            label={tight ? null : t('reels.details')}
+            label={!rail.labels ? null : t('reels.details')}
             a11y={t('reels.detailsFor', { name: product.name })}
             onPress={onOpen}
           />

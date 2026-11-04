@@ -20,6 +20,9 @@ export const en = {
     findGift: 'Find a gift',
     back: 'Back',
     discover: 'Open Discover',
+    wishlist: 'Your wishlist',
+    openWishlist_one: 'Wishlist, {count} item',
+    openWishlist_other: 'Wishlist, {count} items',
   },
 
   error: {
@@ -86,6 +89,30 @@ export const en = {
     nextImage: 'Next image',
     goToImage: 'Show photo {n} of {total}',
     imagePosition: 'Photo {n} of {total}',
+  },
+
+  wishlist: {
+    title: 'Your wishlist',
+    pageTitle: 'Your wishlist · {shop}',
+    save: 'Save {name} to wishlist',
+    remove: 'Remove {name} from wishlist',
+    saveShort: 'Save',
+    savedShort: 'Saved',
+    removeShort: 'Remove',
+    saved: 'Saved to wishlist',
+    removed: 'Removed from wishlist',
+    saveFailed: "Couldn't save your wishlist on this device",
+    full: 'Your wishlist is full. Remove something to save more.',
+    count_one: '{count} saved item',
+    count_other: '{count} saved items',
+    unavailable: 'Unavailable',
+    unavailableSub: 'Out of stock right now',
+    noLongerSold: 'No longer sold',
+    unknownProduct: 'Saved product',
+    empty: 'Your wishlist is empty',
+    emptySub: 'Tap the heart on any product to save it for later.',
+    continue: 'Continue shopping',
+    loadError: "Couldn't load your saved products.",
   },
 
   cart: {

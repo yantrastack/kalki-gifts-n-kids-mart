@@ -2,6 +2,7 @@ import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import MediaCarousel from '../components/MediaCarousel';
 import ProductBadge from '../components/ProductBadge';
+import WishlistHeart from '../components/WishlistHeart';
 import { useI18n } from '../i18n';
 import { type Theme, money } from '../theme';
 import type { Product, Brand } from '../api';
@@ -41,7 +42,10 @@ export default function ProductScreen({
 
         <View style={[styles.sheet, { backgroundColor: theme.bg }]}>
           <ProductBadge tag={product.tag} theme={theme} style={styles.tagPill} />
-          <Text style={[styles.name, { color: theme.text }]}>{product.name}</Text>
+          <View style={styles.nameRow}>
+            <Text style={[styles.name, { color: theme.text }]}>{product.name}</Text>
+            <WishlistHeart product={product} theme={theme} size={40} style={styles.heart} />
+          </View>
           <Text style={[styles.meta, { color: theme.faint }]}>
             {[product.brand, product.category].filter(Boolean).join(' · ')}
           </Text>
@@ -187,7 +191,10 @@ function RoundAction({
 const styles = StyleSheet.create({
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, marginTop: -20, padding: 20 },
   tagPill: { marginBottom: 8 },
-  name: { fontSize: 23, fontWeight: '700', lineHeight: 29 },
+  nameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  name: { flex: 1, fontSize: 23, fontWeight: '700', lineHeight: 29 },
+  // Pull the 44px target up so its 40px circle lines up with the first line of the name.
+  heart: { marginTop: -8, marginRight: -2 },
   meta: { fontSize: 13, marginTop: 4 },
   priceRow: {
     flexDirection: 'row',

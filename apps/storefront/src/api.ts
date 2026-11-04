@@ -50,6 +50,17 @@ export async function getProducts(): Promise<Product[]> {
   return r.json();
 }
 
+/**
+ * Fresh data for saved (wishlist) products. Unlike getProducts() this includes products
+ * that are out of stock (`inStock: 0`); ids the shop no longer lists are not returned.
+ */
+export async function getProductsByIds(ids: readonly string[]): Promise<Product[]> {
+  if (!ids.length) return [];
+  const r = await fetch(`${API_BASE}/api/shop/products?ids=${encodeURIComponent(ids.join(','))}`);
+  if (!r.ok) throw new Error('Failed to load saved products');
+  return r.json();
+}
+
 /** Occasion / gift-type choices: the built-in ones plus any the shop has added. */
 export async function getGiftOptions(): Promise<GiftOptions> {
   try {

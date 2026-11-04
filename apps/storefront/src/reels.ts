@@ -78,6 +78,27 @@ export function reelDensity(height: number): 'roomy' | 'compact' | 'tight' {
   return 'tight';
 }
 
+/** Buttons on the reel action rail: like, share, save, buy, details. */
+export const RAIL_BUTTONS = 5;
+/** Caption under a rail button (gap 4 + one 14px line). */
+const RAIL_CAPTION = 18;
+/** Rail space above the reel bottom that the overlay keeps (top band + padding). */
+const RAIL_RESERVED = 160;
+
+/**
+ * Size, spacing and captions of the reel action rail for a reel `height` px tall, so all
+ * RAIL_BUTTONS fit beside the info panel without being clipped. Captions are dropped
+ * first, then the buttons shrink (they keep a 6px hit slop, so taps stay ≥ 44px).
+ */
+export function reelRail(height: number): { size: number; gap: number; labels: boolean } {
+  const density = reelDensity(height);
+  if (density === 'tight') return { size: 36, gap: 4, labels: false };
+  if (density === 'roomy') return { size: 46, gap: 20, labels: true };
+  const gap = 8;
+  const withLabels = RAIL_BUTTONS * (46 + RAIL_CAPTION) + (RAIL_BUTTONS - 1) * gap;
+  return { size: 46, gap, labels: height - RAIL_RESERVED >= withLabels };
+}
+
 /**
  * Opacity at evenly spaced stops of a scrim, from `max` at the edge fading to 0, eased
  * (quadratic) so the fade has no visible line where it ends.

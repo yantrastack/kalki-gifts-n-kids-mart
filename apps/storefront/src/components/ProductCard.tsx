@@ -9,6 +9,7 @@ import ProductBadge from './ProductBadge';
 import { useFocusRing } from './focusRing';
 import { canHover, prefersReducedMotion } from './hover';
 import { hoverImage } from './gallery';
+import WishlistHeart from './WishlistHeart';
 
 // Read once: whether this device hovers (mouse) and whether the user wants less motion.
 const HOVER = canHover();
@@ -68,8 +69,9 @@ export default function ProductCard({
   const price = money(currency, product.price);
 
   return (
-    // The card's button and the add button are siblings: a <button> inside a <button> is
-    // invalid HTML on web and confuses screen readers.
+    // The card's button, the heart and the add button are siblings: a <button> inside a
+    // <button> is invalid HTML on web and confuses screen readers, and a tap on the heart or
+    // the add button must never open the product.
     <View
       onPointerEnter={
         HOVER
@@ -178,6 +180,9 @@ export default function ProductCard({
       >
         <Feather name="plus" size={17} color={theme.onAccent} />
       </Pressable>
+
+      {/* Save to wishlist, over the photo's top-right corner (the badge is top-left). */}
+      <WishlistHeart product={product} theme={theme} style={styles.heart} />
     </View>
   );
 }
@@ -201,7 +206,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badge: { position: 'absolute', top: 8, left: 8, maxWidth: '80%' },
+  // Narrower than before so a long badge stops short of the heart in the other corner.
+  badge: { position: 'absolute', top: 8, left: 8, maxWidth: '60%' },
+  // 44px touch target whose 32px circle sits 6px inside the photo's corner.
+  heart: { position: 'absolute', top: PAD, right: PAD },
   name: { fontSize: 14, fontWeight: '600', lineHeight: 18, minHeight: 36 },
   cat: { fontSize: 11, marginTop: 2 },
   row: {

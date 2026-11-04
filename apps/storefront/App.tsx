@@ -12,7 +12,7 @@ import {
   StatusBar as RNStatusBar,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { getBrand, getProducts, type Brand, type Product } from './src/api';
 import { buildTheme, money } from './src/theme';
 import { I18nProvider, useI18n, LANGS } from './src/i18n';
@@ -21,10 +21,13 @@ import ProductScreen from './src/screens/ProductScreen';
 import CartScreen, { type CartItem } from './src/screens/CartScreen';
 import GiftFinderScreen from './src/screens/GiftFinderScreen';
 import ReelsScreen from './src/screens/ReelsScreen';
-import { AppFrame } from './src/layout';
+import WishlistScreen from './src/screens/WishlistScreen';
+import { SAVED_TINT } from './src/components/WishlistHeart';
+import { WishlistProvider, useWishlist } from './src/wishlistStore';
+import { AppFrame, useAppWidth } from './src/layout';
 import { addCapped, productIdFromSearch, productLink, PRODUCT_PARAM } from './src/reels';
 
-type Screen = 'home' | 'gift' | 'product' | 'cart' | 'reels';
+type Screen = 'home' | 'gift' | 'product' | 'cart' | 'reels' | 'wishlist';
 
 /**
  * Browser history entry for a screen (web). `depth` counts entries pushed above home, so
@@ -37,16 +40,30 @@ const webLocation = (): any => (isWeb ? (globalThis as any).location : null);
 
 /** Dark page around the reel on desktop web, so Discover reads as a stage. */
 const DISCOVER_PAGE = '#0E0D0C';
+/**
+ * Below this app width the header tightens (smaller gaps and language toggle) so the
+ * back/brand mark, title, EN / తె, Discover, Wishlist and Cart fit from 320px, and the
+ * shop name keeps room on common phones (360–393px).
+ */
+const NARROW_HEADER = 400;
 
 export default function App() {
   return (
     <I18nProvider>
-      <Shop />
+      <WishlistProvider>
+        <Shop />
+      </WishlistProvider>
     </I18nProvider>
   );
 }
 
-function LangToggle({ theme }: { theme: ReturnType<typeof buildTheme> }) {
+function LangToggle({
+  theme,
+  narrow = false,
+}: {
+  theme: ReturnType<typeof buildTheme>;
+  narrow?: boolean;
+}) {
   const { lang, setLang, t } = useI18n();
   return (
     <View
@@ -65,6 +82,7 @@ function LangToggle({ theme }: { theme: ReturnType<typeof buildTheme> }) {
             hitSlop={6}
             style={[
               styles.langBtn,
+              narrow && styles.langBtnNarrow,
               {
                 borderRadius: theme.r.pill,
                 backgroundColor: active ? theme.accent : 'transparent',
@@ -92,6 +110,11 @@ function LangToggle({ theme }: { theme: ReturnType<typeof buildTheme> }) {
 
 function Shop() {
   const { t } = useI18n();
+  const wishlist = useWishlist();
+  const narrow = useAppWidth() < NARROW_HEADER;
+  // Header buttons: 40px, plus hit slop to reach 44px without overlapping a neighbour.
+  const slop = narrow ? 2 : 10;
+  const gapX = narrow ? 4 : 8;
   const [brand, setBrand] = useState<Brand | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -323,13 +346,27 @@ function Shop() {
   const title =
     screen === 'cart'
       ? t('header.cart')
-      : screen === 'gift'
-        ? t('header.findGift')
-        : screen === 'product'
-          ? ''
-          : brand?.appName;
+      : screen === 'wishlist'
+        ? t('header.wishlist')
+        : screen === 'gift'
+          ? t('header.findGift')
+          : screen === 'product'
+            ? ''
+            : brand?.appName;
 
   const inReels = screen === 'reels';
+
+  // Web: the wishlist gets its own document title while it is open (it is personal, so it
+  // has no URL of its own and is never in the sitemap). The previous title comes back after.
+  const shopName = brand?.appName;
+  useEffect(() => {
+    if (!isWeb || screen !== 'wishlist' || typeof document === 'undefined') return;
+    const before = document.title;
+    document.title = t('wishlist.pageTitle', { shop: shopName ?? '' }).replace(/ · $/, '');
+    return () => {
+      document.title = before;
+    };
+  }, [screen, shopName, t]);
 
   // On web, AppFrame pins the app to the viewport (so bottom bars stay on
   // screen and lists scroll internally) inside a centered mobile-width column.
@@ -365,11 +402,11 @@ function Shop() {
         }}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, narrow && styles.headerNarrow]}>
           {screen !== 'home' ? (
             <Pressable
               onPress={goBack}
-              hitSlop={10}
+              hitSlop={slop}
               accessibilityRole="button"
               accessibilityLabel={t('header.back')}
               style={[
@@ -387,10 +424,14 @@ function Shop() {
               <Text style={styles.markText}>{brand?.brandInitial ?? 'S'}</Text>
             </View>
           )}
-          <View style={{ flex: 1, marginLeft: 10, marginRight: 6 }}>
+          <View style={{ flex: 1, marginLeft: narrow ? 8 : 10, marginRight: narrow ? 4 : 6 }}>
             <Text
               style={[styles.title, { color: theme.text }, screen !== 'home' && { fontSize: 18 }]}
               numberOfLines={2}
+              // The wishlist's one page heading (<h1> on web).
+              {...(screen === 'wishlist'
+                ? ({ accessibilityRole: 'header', 'aria-level': 1 } as any)
+                : null)}
             >
               {title}
             </Text>
@@ -400,30 +441,56 @@ function Shop() {
               </Text>
             ) : null}
           </View>
-          <LangToggle theme={theme} />
+          <LangToggle theme={theme} narrow={narrow} />
           {screen === 'home' && (
             <Pressable
               onPress={() => navigate('reels')}
-              hitSlop={10}
+              hitSlop={slop}
               accessibilityRole="button"
               accessibilityLabel={t('header.discover')}
               style={[
                 styles.hbtn,
-                { backgroundColor: theme.accent, borderRadius: theme.r.pill, marginLeft: 8 },
+                { backgroundColor: theme.accent, borderRadius: theme.r.pill, marginLeft: gapX },
                 theme.shadow,
               ]}
             >
               <Feather name="film" size={18} color={theme.onAccent} />
             </Pressable>
           )}
+          {screen !== 'wishlist' && (
+            <Pressable
+              onPress={() => navigate('wishlist')}
+              hitSlop={slop}
+              accessibilityRole="button"
+              accessibilityLabel={t('header.openWishlist', { count: wishlist.count })}
+              style={[
+                styles.hbtn,
+                { backgroundColor: theme.card, borderRadius: theme.r.pill, marginLeft: gapX },
+                theme.shadow,
+              ]}
+            >
+              <Ionicons
+                name={wishlist.count > 0 ? 'heart' : 'heart-outline'}
+                size={19}
+                color={wishlist.count > 0 ? SAVED_TINT : theme.text}
+              />
+              {wishlist.count > 0 && (
+                <View style={[styles.badge, { backgroundColor: theme.accent }]}>
+                  <Text style={styles.badgeText}>
+                    {wishlist.count > 99 ? '99+' : wishlist.count}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          )}
           <Pressable
             onPress={() => navigate('cart')}
-            hitSlop={10}
+            hitSlop={slop}
             accessibilityRole="button"
             accessibilityLabel={t('reels.cart', { count })}
             style={[
               styles.hbtn,
-              { backgroundColor: theme.card, borderRadius: theme.r.pill, marginLeft: 8 },
+              { backgroundColor: theme.card, borderRadius: theme.r.pill, marginLeft: gapX },
               theme.shadow,
             ]}
           >
@@ -501,6 +568,15 @@ function Shop() {
                 onWhatsApp={() => whatsappOrder(selected)}
               />
             )}
+            {screen === 'wishlist' && !loading && (
+              <WishlistScreen
+                theme={theme}
+                currency={currency}
+                onOpen={openProduct}
+                onAdd={addToCart}
+                onBrowse={goHome}
+              />
+            )}
             {screen === 'cart' && !loading && (
               <CartScreen
                 items={cart}
@@ -515,6 +591,19 @@ function Shop() {
               />
             )}
           </>
+        )}
+
+        {/* Wishlist save problems (storage blocked or full), from any screen. */}
+        {wishlist.notice && (
+          <View
+            key={wishlist.notice.id}
+            style={[styles.notice, { backgroundColor: theme.text, borderRadius: theme.r.pill }]}
+            pointerEvents="none"
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            <Text style={styles.noticeText}>{t(`wishlist.${wishlist.notice.key}`)}</Text>
+          </View>
         )}
 
         {/* Floating cart summary on home */}
@@ -561,12 +650,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
+  headerNarrow: { paddingHorizontal: 10 },
   hbtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   mark: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   markText: { color: '#fff', fontSize: 17, fontWeight: '800' },
   title: { fontSize: 16, fontWeight: '700', lineHeight: 19 },
   langWrap: { flexDirection: 'row', alignItems: 'center', padding: 3, gap: 2 },
   langBtn: { paddingHorizontal: 10, paddingVertical: 6, minWidth: 34, alignItems: 'center' },
+  langBtnNarrow: { paddingHorizontal: 6, minWidth: 28 },
   badge: {
     position: 'absolute',
     top: -4,
@@ -580,6 +671,15 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   retry: { marginTop: 18, paddingHorizontal: 24, paddingVertical: 11 },
+  notice: {
+    position: 'absolute',
+    top: 64,
+    alignSelf: 'center',
+    maxWidth: '90%',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  noticeText: { color: '#fff', fontSize: 13, fontWeight: '700', textAlign: 'center' },
   cartBar: {
     position: 'absolute',
     left: 16,

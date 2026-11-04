@@ -319,8 +319,26 @@ export type FeedResponse = {
   categories: string[];
 };
 
-/** Engagement events the storefront records via POST /api/shop/events. */
-export const PRODUCT_EVENT_TYPES = ['view', 'like', 'unlike', 'share', 'buy', 'open'] as const;
+/**
+ * Most products a storefront wishlist holds, and so the most ids one
+ * `GET /api/shop/products?ids=` lookup accepts (YAN-111).
+ */
+export const WISHLIST_MAX = 100;
+
+/**
+ * Engagement events the storefront records via POST /api/shop/events. `save` / `unsave`
+ * are wishlist toggles (YAN-111); they are separate from `like` / `unlike`.
+ */
+export const PRODUCT_EVENT_TYPES = [
+  'view',
+  'like',
+  'unlike',
+  'share',
+  'buy',
+  'open',
+  'save',
+  'unsave',
+] as const;
 export type ProductEventType = (typeof PRODUCT_EVENT_TYPES)[number];
 export type ProductEventInput = { productId: string; type: ProductEventType; sessionId?: string };
 
