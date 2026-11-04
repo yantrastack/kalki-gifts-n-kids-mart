@@ -1,19 +1,21 @@
 import { useState } from 'react';
 import { Platform, type ViewStyle } from 'react-native';
 import type { Theme } from '../theme';
+import { isNavigationKey, shouldShowFocusRing } from './focusVisible';
 
 /*
- * Keyboard focus ring for Pressables on web (like CSS :focus-visible). react-native-web
+ * Keyboard focus ring for Pressables on web (CSS :focus-visible). react-native-web
  * renders Pressables as focusable divs, so the browser would draw its own black outline,
- * or show a ring after every mouse click if we styled every focus. We track whether the
- * last input was the keyboard and only then show an accent ring that follows the radius.
+ * or show a ring after every mouse click if we styled every focus. On focus we ask the
+ * browser whether the focus is keyboard focus, and only then show an accent ring that
+ * follows the radius. `keyboardNav` is the fallback for browsers without :focus-visible.
  */
 let keyboardNav = false;
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   document.addEventListener(
     'keydown',
-    () => {
-      keyboardNav = true;
+    (e) => {
+      if (isNavigationKey(e)) keyboardNav = true;
     },
     true,
   );
@@ -26,11 +28,17 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   );
 }
 
-/** Spread `handlers` on a Pressable and add `ring` to its style. */
+/**
+ * Spread `handlers` on a Pressable and add `ring` to its style. `visible` says whether
+ * the ring shows, for a control that draws it on an inner element instead.
+ */
 export function useFocusRing(theme: Theme, radius: number) {
   const [visible, setVisible] = useState(false);
   const handlers = {
-    onFocus: () => setVisible(keyboardNav),
+    onFocus: (e?: any) => {
+      const el = e?.nativeEvent?.target ?? e?.currentTarget ?? e?.target;
+      setVisible(shouldShowFocusRing(el, keyboardNav));
+    },
     onBlur: () => setVisible(false),
   };
   const ring: ViewStyle | null =
@@ -45,5 +53,5 @@ export function useFocusRing(theme: Theme, radius: number) {
             borderRadius: radius,
           }
         : { outlineWidth: 0 };
-  return { handlers, ring };
+  return { handlers, ring, visible: Platform.OS === 'web' && visible };
 }

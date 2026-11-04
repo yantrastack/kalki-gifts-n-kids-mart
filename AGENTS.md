@@ -182,6 +182,21 @@ Demo logins (password `stockwell123`): `admin@stockwell.app` (admin),
   reach/views/likes/shares/buys KPIs and a per-product engagement table. Seed
   ships synthetic events so it looks alive.
 
+### Wishlist (storefront, YAN-111)
+- One device-local wishlist, no login: `WishlistProvider` / `useWishlist()`
+  (`apps/storefront/src/wishlistStore.tsx`), wrapped around the app in `App.tsx`. Every
+  entry point reads it: the **Save** (bookmark) button on the Discover rail, the heart on
+  product cards and the product page (`WishlistHeart.tsx`, always a *sibling* of the card's
+  button), the header heart + count, and the **Wishlist** screen (`WishlistScreen.tsx`).
+- Stored as `[{ id, savedAt, name? }]` in `localStorage['sf-wishlist']` (in memory on
+  native, like `sf-liked`). Pure helpers in `src/wishlist.ts` (parse/toggle/resolve; corrupt
+  storage → empty), tested from `apps/stockwell/src/lib/wishlist.test.ts`. Max
+  `WISHLIST_MAX` (shared). Save is separate from Like.
+- Price and stock are never stored: the screen calls `GET /api/shop/products?ids=a,b`,
+  which returns live products **including sold-out ones**; drafts, discontinued, deleted
+  and unknown ids are left out and shown as "Unavailable" (the saved name labels them).
+- Taps record `save` / `unsave` engagement events (`PRODUCT_EVENT_TYPES`).
+
 ### Internationalization (English + Telugu)
 - Both apps ship their own dictionaries; strings live **only** in these files:
   - Storefront: `apps/storefront/src/i18n/{en,te}.ts` + `index.tsx`

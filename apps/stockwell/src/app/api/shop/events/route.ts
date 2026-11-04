@@ -14,7 +14,7 @@ export async function OPTIONS() {
 
 const VALID = new Set<string>(PRODUCT_EVENT_TYPES);
 
-// Public: record a storefront engagement event (view/like/unlike/share/buy/open).
+// Public: record a storefront engagement event (view/like/unlike/share/buy/open/save/unsave).
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const productId = String(body.productId || '');
