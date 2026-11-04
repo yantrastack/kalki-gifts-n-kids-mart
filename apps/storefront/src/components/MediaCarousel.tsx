@@ -91,6 +91,7 @@ export default function MediaCarousel({
               // Only the slide on screen plays; the others stay paused.
               <VideoPlayer
                 uri={mediaUrl(item.url)}
+                poster={item.poster ? mediaUrl(item.poster) : undefined}
                 width={width}
                 height={width}
                 theme={theme}

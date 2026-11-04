@@ -106,7 +106,9 @@ export type MediaProblem =
   | { code: 'tooLarge'; name: string; limitMb: number }
   | { code: 'notAnImage'; name: string }
   | { code: 'tooSmall'; name: string; width: number; height: number; min: number }
-  | { code: 'typeMismatch'; name: string; expected: 'image' | 'video' };
+  | { code: 'typeMismatch'; name: string; expected: 'image' | 'video' }
+  | { code: 'storage'; name: string }
+  | { code: 'network'; name: string };
 
 // Flat (not a union): this app compiles without strictNullChecks, where `!res.ok` doesn't narrow.
 export type MediaCheck = {
@@ -117,6 +119,64 @@ export type MediaCheck = {
 };
 
 /**
+ * Format and size-per-type check only (no bytes). Used before a direct-to-storage upload
+ * is allowed to start, and as the first step of checkMediaFile.
+ */
+export function checkTypeAndSize(f: { name: string; type: string; size: number }): MediaCheck {
+  const declared = declaredType(f);
+  if (!declared) return { ok: false, problem: { code: 'unsupported', name: f.name } };
+  const kind = declared.startsWith('video/') ? 'video' : 'image';
+  const limit = kind === 'video' ? MAX_VIDEO_BYTES : MAX_PHOTO_BYTES;
+  if (!(f.size > 0) || f.size > limit)
+    return {
+      ok: false,
+      problem:
+        f.size > limit
+          ? { code: 'tooLarge', name: f.name, limitMb: limit >> 20 }
+          : { code: 'unsupported', name: f.name },
+    };
+  return { ok: true, mime: declared, kind };
+}
+
+/** Storage formats (as Cloudinary reports them) allowed for each media type. */
+export const STORED_FORMATS = {
+  image: ['jpg', 'jpeg', 'png', 'webp'],
+  video: ['mp4', 'mov', 'webm'],
+} as const;
+
+/**
+ * Checks a file that the browser already uploaded straight to storage (Cloudinary), from
+ * the facts storage reported back: format, size and, for photos, pixel size. Same limits
+ * as checkMediaFile, so a direct upload can't get around them.
+ */
+export function checkStoredMedia(s: {
+  name: string;
+  kind: 'image' | 'video';
+  format: string;
+  bytes: number;
+  width?: number | null;
+  height?: number | null;
+}): MediaCheck {
+  const formats: readonly string[] = STORED_FORMATS[s.kind];
+  if (!formats.includes(String(s.format).toLowerCase()))
+    return { ok: false, problem: { code: 'unsupported', name: s.name } };
+  const limit = s.kind === 'video' ? MAX_VIDEO_BYTES : MAX_PHOTO_BYTES;
+  if (!(s.bytes > 0) || s.bytes > limit)
+    return { ok: false, problem: { code: 'tooLarge', name: s.name, limitMb: limit >> 20 } };
+  if (s.kind === 'image') {
+    const w = Number(s.width) || 0;
+    const h = Number(s.height) || 0;
+    if (!w || !h) return { ok: false, problem: { code: 'notAnImage', name: s.name } };
+    if (Math.min(w, h) < MIN_PHOTO_SIDE)
+      return {
+        ok: false,
+        problem: { code: 'tooSmall', name: s.name, width: w, height: h, min: MIN_PHOTO_SIDE },
+      };
+  }
+  return { ok: true, kind: s.kind };
+}
+
+/**
  * Checks one file for upload: format, size per type, and for photos that the bytes are a
  * real JPEG/PNG/WebP (so a renamed file is caught) at least MIN_PHOTO_SIDE px on its short
  * side. `bytes` is the file content (photos only; pass null for videos).
@@ -125,23 +185,8 @@ export function checkMediaFile(
   f: { name: string; type: string; size: number },
   bytes: Uint8Array | null,
 ): MediaCheck {
-  const declared = declaredType(f);
-  if (!declared) return { ok: false, problem: { code: 'unsupported', name: f.name } };
-
-  if (declared.startsWith('video/')) {
-    if (f.size > MAX_VIDEO_BYTES)
-      return {
-        ok: false,
-        problem: { code: 'tooLarge', name: f.name, limitMb: MAX_VIDEO_BYTES >> 20 },
-      };
-    return { ok: true, mime: declared, kind: 'video' };
-  }
-
-  if (f.size > MAX_PHOTO_BYTES)
-    return {
-      ok: false,
-      problem: { code: 'tooLarge', name: f.name, limitMb: MAX_PHOTO_BYTES >> 20 },
-    };
+  const head = checkTypeAndSize(f);
+  if (!head.ok || head.kind === 'video') return head;
   const info = bytes ? readImageInfo(bytes) : null;
   if (!info) return { ok: false, problem: { code: 'notAnImage', name: f.name } };
   if (Math.min(info.width, info.height) < MIN_PHOTO_SIDE)
@@ -180,6 +225,39 @@ export function checkReorder(
   if (seen.size !== known.size)
     return { ok: false, error: 'order must list every media item of this product' };
   return { ok: true, order: order as string[] };
+}
+
+/**
+ * Moves an item inside one section (Photos or Videos) of a mixed, ordered media list.
+ * `from`/`to` are positions among items of `kind` only; items of the other kind keep their
+ * places. Photo position 0 is the cover, so "Set as cover" = move a photo to 0.
+ */
+export function moveWithinKind<T extends { type: string }>(
+  list: T[],
+  kind: 'image' | 'video',
+  from: number,
+  to: number,
+): T[] {
+  const slots: number[] = [];
+  list.forEach((m, i) => {
+    if ((m.type === 'video' ? 'video' : 'image') === kind) slots.push(i);
+  });
+  const moved = moveItem(
+    slots.map((i) => list[i]),
+    from,
+    to,
+  );
+  if (moved.every((m, j) => m === list[slots[j]])) return list;
+  const next = [...list];
+  slots.forEach((slot, j) => {
+    next[slot] = moved[j];
+  });
+  // The cover is the first photo overall: keep it ahead of any video.
+  if (kind === 'image' && slots.length && moved[0] !== list[slots[0]]) {
+    const cover = next.indexOf(moved[0]);
+    if (cover > 0) return moveItem(next, cover, 0);
+  }
+  return next;
 }
 
 /** `list` with the item at `from` moved to `to` (both clamped). "Set as cover" = move to 0. */

@@ -8,16 +8,15 @@ import ImportProductsModal from '@/components/ImportProductsModal';
 import { useI18n } from '@/i18n';
 import { useUser } from '@/components/UserContext';
 import GiftFields, { type GiftValue } from '@/components/GiftFields';
-import { MIN_PRODUCT_PHOTOS, giftTagLabel, photoCount } from '@stockwell/shared';
+import { MIN_PRODUCT_PHOTOS, giftTagLabel } from '@stockwell/shared';
 import { missingForActivation } from '@/lib/catalog';
-import { UPLOAD_ACCEPT, moveItem } from '@/lib/mediaRules';
+import { declaredType, moveWithinKind } from '@/lib/mediaRules';
 import { filePhotoCount } from '@/components/MediaPicker';
 import {
-  MediaHelp,
-  PhotoCount,
-  ProductMediaGrid,
+  MediaSections,
   problemMessage,
   screenFiles,
+  type UploadEntry,
 } from '@/components/ProductMediaGrid';
 import MediaPreview from '@/components/MediaPreview';
 import { MediaUploadError, replaceMediaFile, uploadMediaFile } from '@/lib/uploadMedia';
@@ -41,17 +40,8 @@ function NeedsPhotosBadge({ p }: { p: any }) {
   );
 }
 
-// Uploads files to a product's media; throws `{ message, problem? }` when it is refused.
-async function uploadMedia(productId: string, files: File[]) {
-  const fd = new FormData();
-  for (const f of files) fd.append('files', f);
-  const r = await fetch(`/api/products/${productId}/media`, { method: 'POST', body: fd });
-  if (!r.ok) {
-    const body = await r.json().catch(() => ({}));
-    throw Object.assign(new Error(body.error || 'Upload failed'), { problem: body.problem });
-  }
-  return r.json();
-}
+const fileKind = (f: File): 'image' | 'video' =>
+  declaredType(f)?.startsWith('video/') ? 'video' : 'image';
 
 export default function ProductsPage() {
   const {
@@ -81,6 +71,13 @@ export default function ProductsPage() {
   const [openProduct, setOpenProduct] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
+  // Per-file progress of the media upload that follows "Publish product"/"Save as draft".
+  const [createUploads, setCreateUploads] = useState<UploadEntry[]>([]);
+  // Files that failed during create: handed to the new product's Media tab for retry.
+  const [pendingMedia, setPendingMedia] = useState<{
+    productId: string;
+    entries: UploadEntry[];
+  } | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [removing, setRemoving] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -175,6 +172,10 @@ export default function ProductsPage() {
   // create as draft → upload media → activate. The form is checked here first with the
   // API's own rules, so a product that can't be published isn't created at all.
   // Returns 'needsPhotos' so the popup can open its photo section.
+  // A rejected upload explains itself as `problem` (translated here) or as `error`.
+  const uploadError = (e: any): string =>
+    e?.problem ? problemMessage(t, e.problem) : e?.message || t('media.uploadFailedGeneric');
+
   const handleAdd = async (
     form: any,
     files: File[] = [],
@@ -205,22 +206,50 @@ export default function ProductsPage() {
       });
       return;
     }
-    setAddOpen(false);
-    // If the upload fails the product still exists as a draft; say so and let them retry
-    // from its Media tab.
+    // One request per file, with progress in the popup. A failed file never loses the
+    // product: it stays a draft, and its Media tab opens with the failed files ready to
+    // retry one by one.
     if (files.length) {
-      try {
-        await uploadMedia(created.id, files);
-      } catch (e: any) {
+      const entries: UploadEntry[] = files.map((f, i) => ({
+        key: `c${i}`,
+        name: f.name,
+        kind: fileKind(f),
+        percent: 0,
+        status: 'waiting',
+        file: f,
+      }));
+      setCreateUploads(entries);
+      const patchEntry = (key: string, patch: Partial<UploadEntry>) =>
+        setCreateUploads((us) => us.map((u) => (u.key === key ? { ...u, ...patch } : u)));
+      const failed: UploadEntry[] = [];
+      for (const e of entries) {
+        patchEntry(e.key, { status: 'uploading' });
+        try {
+          await uploadMediaFile(created.id, e.file!, (loaded, total) =>
+            patchEntry(e.key, { percent: total ? Math.round((loaded / total) * 100) : 0 }),
+          );
+          patchEntry(e.key, { status: 'done', percent: 100 });
+        } catch (err: any) {
+          const error = uploadError(err);
+          patchEntry(e.key, { status: 'error', error });
+          failed.push({ ...e, status: 'error', error });
+        }
+      }
+      setCreateUploads([]);
+      if (failed.length) {
+        setAddOpen(false);
         toast({
-          message: t('productForm.mediaFailed', { error: uploadError(e) }),
+          message: t('productForm.mediaPartial', { name: form.name, count: failed.length }),
           icon: 'alert',
           type: 'danger',
         });
+        setPendingMedia({ productId: created.id, entries: failed });
+        setOpenProduct(created);
         load();
         return;
       }
     }
+    setAddOpen(false);
     if (!activate) {
       toast({ message: t('productForm.draftSaved', { name: form.name }), icon: 'check' });
       load();
@@ -249,10 +278,6 @@ export default function ProductsPage() {
     }
     load();
   };
-
-  // A rejected upload explains itself as `problem` (translated here) or as `error`.
-  const uploadError = (e: any): string =>
-    e?.problem ? problemMessage(t, e.problem) : e?.message || 'Upload failed';
 
   // Draft (or discontinued) → active. The API checks the product is complete first.
   const activateProduct = async (p: any) => {
@@ -659,12 +684,18 @@ export default function ProductsPage() {
         {openProduct && (
           <ProductDetail
             product={openProduct}
-            onClose={() => setOpenProduct(null)}
+            onClose={() => {
+              setOpenProduct(null);
+              setPendingMedia(null);
+            }}
             onDelete={setRemoving}
             deleting={deleting}
             onSaved={load}
             onActivate={activateProduct}
             isAdmin={isAdmin}
+            pendingUploads={
+              pendingMedia?.productId === openProduct.id ? pendingMedia.entries : undefined
+            }
           />
         )}
       </Slideover>
@@ -725,6 +756,7 @@ export default function ProductsPage() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onSubmit={handleAdd}
+        uploads={createUploads}
         customizable
         draftable
       />
@@ -764,11 +796,13 @@ function ProductDetail({
   onSaved,
   onActivate,
   isAdmin,
+  pendingUploads,
 }: any) {
   const { t } = useI18n();
   const { fmt, statusBadge, useToast } = UI;
   const toast = useToast();
-  const [tab, setTab] = useState('overview');
+  // Opens on Media when a create-time upload left files to retry.
+  const [tab, setTab] = useState(pendingUploads?.length ? 'media' : 'overview');
   const [adjust, setAdjust] = useState('');
   const [activating, setActivating] = useState(false);
 
@@ -1002,7 +1036,14 @@ function ProductDetail({
             </div>
           </>
         )}
-        {tab === 'media' && <MediaTab productId={p.id} isAdmin={isAdmin} onChanged={onSaved} />}
+        {tab === 'media' && (
+          <MediaTab
+            productId={p.id}
+            isAdmin={isAdmin}
+            onChanged={onSaved}
+            initialUploads={pendingUploads}
+          />
+        )}
         {tab === 'gifting' && <GiftingTab product={p} onSaved={onSaved} />}
         {tab === 'adjust' && (
           <div className="dp-section">
@@ -1059,41 +1100,34 @@ function ProductDetail({
   );
 }
 
-// One file's upload state in the Media tab progress list (YAN-108). A failed file keeps
-// its File handle so it can be retried without picking it again.
-type UploadEntry = {
-  key: string;
-  name: string;
-  percent: number; // 0–100
-  status: 'uploading' | 'done' | 'error';
-  error?: string;
-  file?: File;
-  replaceId?: string; // set when this entry replaces an existing media item
-};
-
+// Product drawer → Media tab: separate Photos and Videos sections, per-file upload
+// progress with retry, play-with-sound preview, replace in place, remove with
+// confirmation, reorder and "Set as cover" (YAN-108 / YAN-109).
 function MediaTab({
   productId,
   isAdmin,
   onChanged,
+  initialUploads,
 }: {
   productId: string;
   isAdmin: boolean;
   onChanged?: () => void;
+  /** Files that failed while the product was being created, ready to retry. */
+  initialUploads?: UploadEntry[];
 }) {
   const { useToast } = UI;
   const toast = useToast();
   const { t } = useI18n();
   const [items, setItems] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [uploads, setUploads] = useState<UploadEntry[]>([]);
+  const [errors, setErrors] = useState<Partial<Record<'image' | 'video', string[]>>>({});
+  const [uploads, setUploads] = useState<UploadEntry[]>(initialUploads ?? []);
   const [preview, setPreview] = useState<{
     url: string;
     type: 'image' | 'video';
     label: string;
   } | null>(null);
   const [confirming, setConfirming] = useState<number | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const entrySeq = useRef(0);
 
   const load = () => jget(`/api/products/${productId}/media`).then(setItems);
@@ -1120,26 +1154,24 @@ function MediaTab({
       const msg =
         e instanceof MediaUploadError && e.problem
           ? problemMessage(t, e.problem as any)
-          : e.message || t('media.uploadFailedGeneric');
+          : t('media.uploadFailedGeneric');
       patchEntry(entry.key, { status: 'error', error: msg });
     }
   };
 
-  const upload = async (picked: FileList | null) => {
-    if (!picked?.length) return;
-    const list = Array.from(picked);
-    if (fileRef.current) fileRef.current.value = '';
+  const upload = async (kind: 'image' | 'video', list: File[]) => {
     setBusy(true);
     try {
       // Same checks as the API, so a bad file is explained before anything uploads.
       const { accepted, problems } = await screenFiles(list);
-      setErrors(problems.map((p) => problemMessage(t, p)));
+      setErrors((e) => ({ ...e, [kind]: problems.map((p) => problemMessage(t, p)) }));
       if (!accepted.length) return;
       const entries: UploadEntry[] = accepted.map((f) => ({
         key: `u${++entrySeq.current}`,
         name: f.name,
+        kind: fileKind(f),
         percent: 0,
-        status: 'uploading',
+        status: 'waiting',
         file: f,
       }));
       setUploads((us) => [...us.filter((u) => u.status !== 'done'), ...entries]);
@@ -1154,22 +1186,33 @@ function MediaTab({
   const replace = async (index: number, file: File) => {
     const m = items[index];
     if (!m) return;
+    const kind = m.type === 'video' ? 'video' : 'image';
     const { accepted, problems } = await screenFiles([file]);
-    if (problems.length) {
-      setErrors(problems.map((p) => problemMessage(t, p)));
+    setErrors((e) => ({ ...e, [kind]: problems.map((p) => problemMessage(t, p)) }));
+    if (!accepted.length) return;
+    if (fileKind(file) !== kind) {
+      setErrors((e) => ({
+        ...e,
+        [kind]: [problemMessage(t, { code: 'typeMismatch', name: file.name, expected: kind })],
+      }));
       return;
     }
-    if (!accepted.length) return;
     const entry: UploadEntry = {
       key: `u${++entrySeq.current}`,
       name: file.name,
+      kind,
       percent: 0,
-      status: 'uploading',
+      status: 'waiting',
       file,
       replaceId: m.id,
     };
     setUploads((us) => [...us.filter((u) => u.status !== 'done'), entry]);
-    await runEntry(entry);
+    setBusy(true);
+    try {
+      await runEntry(entry);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const remove = async (index: number) => {
@@ -1184,9 +1227,9 @@ function MediaTab({
     } else toast({ message: t('media.removeFailed'), icon: 'x' });
   };
 
-  // Reorder (and "Set as cover" = move to the front): show it at once, then save.
-  const move = async (from: number, to: number) => {
-    const next = moveItem(items, from, to);
+  // Reorder inside a section (and "Set as cover" = first photo): show it at once, then save.
+  const move = async (kind: 'image' | 'video', from: number, to: number) => {
+    const next = moveWithinKind(items, kind, from, to);
     if (next === items) return;
     setItems(next);
     try {
@@ -1195,100 +1238,39 @@ function MediaTab({
       });
       setItems(saved);
       toast({ message: t('media.reordered'), icon: 'check' });
+      onChanged?.();
     } catch {
       toast({ message: t('media.reorderFailed'), icon: 'x' });
       load();
     }
   };
 
-  const activeUploads = uploads.filter((u) => u.status !== 'done');
-
   return (
     <div className="dp-section">
       <h4>{t('media.title')}</h4>
-      <MediaHelp />
-      <input
-        ref={fileRef}
-        type="file"
-        multiple
-        accept={UPLOAD_ACCEPT}
-        style={{ display: 'none' }}
-        onChange={(e) => upload(e.target.files)}
-      />
-      <button
-        type="button"
-        className="btn btn-primary btn-sm"
+      <MediaSections
+        items={items.map((m) => ({
+          key: m.id,
+          url: m.url,
+          type: m.type === 'video' ? 'video' : 'image',
+          poster: m.posterUrl,
+          durationS: m.durationS,
+          hasAudio: m.hasAudio,
+        }))}
+        errors={errors}
+        uploads={uploads}
         disabled={busy}
-        onClick={() => fileRef.current?.click()}
-      >
-        <Icon name="plus" size={12} /> {busy ? t('media.uploading') : t('media.add')}
-      </button>
-      {errors.length > 0 && (
-        <ul className="field-error" role="alert" style={{ marginTop: 8, paddingLeft: 16 }}>
-          {errors.map((e) => (
-            <li key={e}>{e}</li>
-          ))}
-        </ul>
-      )}
-      {activeUploads.length > 0 && (
-        <ul style={{ marginTop: 10, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
-          {activeUploads.map((u) => (
-            <li key={u.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-              <span
-                style={{
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {u.name}
-              </span>
-              {u.status === 'uploading' && (
-                <>
-                  <progress
-                    value={u.percent}
-                    max={100}
-                    style={{ width: 120 }}
-                    aria-label={t('media.uploading')}
-                  />
-                  <span className="muted tiny">{u.percent}%</span>
-                </>
-              )}
-              {u.status === 'error' && (
-                <>
-                  <span className="field-error tiny" role="alert" style={{ margin: 0 }}>
-                    {u.error}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => runEntry(u)}
-                  >
-                    <Icon name="refresh" size={11} /> {t('media.retry')}
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    aria-label={t('media.dismiss')}
-                    title={t('media.dismiss')}
-                    onClick={() => setUploads((us) => us.filter((x) => x.key !== u.key))}
-                  >
-                    <Icon name="x" size={11} />
-                  </button>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      <PhotoCount photos={photoCount(items)} />
-      <ProductMediaGrid
-        items={items.map((m) => ({ key: m.id, url: m.url, type: m.type }))}
-        disabled={busy}
+        canAdd={isAdmin}
+        canEdit={isAdmin}
+        onAdd={upload}
         onMove={move}
         onRemove={isAdmin ? (i) => setConfirming(i) : undefined}
         onReplace={isAdmin ? replace : undefined}
+        onRetry={(u) => {
+          setBusy(true);
+          runEntry(u).finally(() => setBusy(false));
+        }}
+        onDismiss={(u) => setUploads((us) => us.filter((x) => x.key !== u.key))}
         onPreview={(i) => {
           const m = items[i];
           if (!m) return;
@@ -1301,11 +1283,6 @@ function MediaTab({
           });
         }}
       />
-      {!items.length && (
-        <p className="muted tiny" style={{ padding: '16px 0' }}>
-          {t('media.empty')}
-        </p>
-      )}
       {preview && (
         <MediaPreview
           url={preview.url}

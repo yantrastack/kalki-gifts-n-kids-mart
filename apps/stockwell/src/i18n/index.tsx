@@ -19,8 +19,16 @@ function lookup(dict: any, path: string): string | undefined {
 
 type Params = Record<string, string | number>;
 
-function translate(lang: Lang, key: string, params?: Params): string {
-  const raw = lookup(DICTS[lang], key) ?? lookup(DICTS.en, key);
+// A numeric `count` param picks `key_one` / `key_other` (e.g. media.needMore_one).
+const pluralKey = (key: string, params?: Params) =>
+  typeof params?.count === 'number' ? `${key}_${params.count === 1 ? 'one' : 'other'}` : null;
+
+export function translate(lang: Lang, key: string, params?: Params): string {
+  const plural = pluralKey(key, params);
+  const raw =
+    (plural && (lookup(DICTS[lang], plural) ?? lookup(DICTS.en, plural))) ??
+    lookup(DICTS[lang], key) ??
+    lookup(DICTS.en, key);
   if (typeof raw !== 'string') return key;
   return params
     ? raw.replace(/\{(\w+)\}/g, (_, name) =>

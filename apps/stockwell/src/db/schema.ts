@@ -73,6 +73,12 @@ export const productMedia = sqliteTable('product_media', {
   type: text('type').notNull().default('image'), // "image" | "video"
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  // Video metadata (YAN-108). All nullable: older rows and photos have none.
+  posterUrl: text('poster_url'),
+  durationS: real('duration_s'),
+  width: integer('width'),
+  height: integer('height'),
+  hasAudio: integer('has_audio', { mode: 'boolean' }),
 });
 
 // Engagement events from the storefront "Discover" reels (views/likes/shares/buys).

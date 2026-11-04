@@ -22,7 +22,9 @@ work in production, so before deploying:
 
 1. **Database → Turso** (not `file:local.db`). Same libSQL, free hosted.
 2. **Media uploads → Cloudinary** (not the local `uploads/` dir). Already wired —
-   see [apps/stockwell/docs/MEDIA.md](apps/stockwell/docs/MEDIA.md). Anything
+   see [apps/stockwell/docs/MEDIA.md](apps/stockwell/docs/MEDIA.md). The admin
+   browser uploads straight to Cloudinary, so videos up to 50 MB work despite
+   Vercel's 4.5 MB request limit; without Cloudinary, uploads on Vercel are refused. Anything
    committed under `/seed/*` ships inside the build, so only commercially licensed
    product photos may go there (each is recorded in MEDIA.md's licence record).
 

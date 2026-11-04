@@ -1,7 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { asc, desc, sql } from 'drizzle-orm';
-import { csvToList, type FeedProduct, type FeedResponse, type ShopMedia } from '@stockwell/shared';
+import {
+  csvToList,
+  type FeedProduct,
+  type FeedResponse,
+  type ShopMedia,
+  toShopMedia,
+} from '@stockwell/shared';
 import { isPublic } from '@/lib/catalog';
 import { reelCategories, reelPool, relatedReels } from '@/lib/feed';
 
@@ -51,7 +57,7 @@ export async function GET(req: NextRequest) {
   const mediaByProduct = new Map<string, ShopMedia[]>();
   for (const m of media) {
     const list = mediaByProduct.get(m.productId) ?? [];
-    list.push({ id: m.id, url: m.url, type: m.type === 'video' ? 'video' : 'image' });
+    list.push(toShopMedia(m));
     mediaByProduct.set(m.productId, list);
   }
   const likeBy = new Map(likeCounts.map((r) => [r.productId, Math.max(Number(r.n) || 0, 0)]));

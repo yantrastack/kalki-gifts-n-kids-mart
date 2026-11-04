@@ -11,6 +11,8 @@ const fmtTime = (s: number) => {
 
 type PlayerProps = {
   uri: string;
+  /** Still frame shown until the video can play (web). */
+  poster?: string;
   width: number;
   height: number;
   theme: Theme;
@@ -36,7 +38,15 @@ export default function VideoPlayer(props: PlayerProps) {
 }
 
 /* ------------------------------------------------------------------ web player */
-function WebPlayer({ uri, width, height, theme, autoPlay = true, active = true }: PlayerProps) {
+function WebPlayer({
+  uri,
+  poster,
+  width,
+  height,
+  theme,
+  autoPlay = true,
+  active = true,
+}: PlayerProps) {
   const videoRef = useRef<any>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
@@ -110,6 +120,7 @@ function WebPlayer({ uri, width, height, theme, autoPlay = true, active = true }
   const video = createElement('video', {
     ref: videoRef,
     src: uri,
+    poster,
     muted: true,
     loop: true,
     playsInline: true,
