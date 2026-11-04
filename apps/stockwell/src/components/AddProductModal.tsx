@@ -14,6 +14,7 @@ import { useI18n } from '@/i18n';
 // which the parent uploads once the product exists.
 // With `draftable`, the footer offers "Save as draft" next to "Publish product" and
 // `onSubmit` gets `{ activate }` as its third argument (true = publish, false = draft).
+// `uploads` is the per-file progress of the media upload the parent runs after creating.
 export default function AddProductModal({
   open,
   onClose,
@@ -21,6 +22,7 @@ export default function AddProductModal({
   defaults,
   customizable = false,
   draftable = false,
+  uploads = [],
 }: any) {
   const { t } = useI18n();
   const empty = {
@@ -238,7 +240,7 @@ export default function AddProductModal({
               borderTop: '1px solid var(--border-subtle)',
             }}
           >
-            <MediaPicker files={files} onChange={setFiles} disabled={busy} />
+            <MediaPicker files={files} onChange={setFiles} disabled={busy} uploads={uploads} />
             <GiftFields value={gift} onChange={patchGift} />
           </div>
         )}

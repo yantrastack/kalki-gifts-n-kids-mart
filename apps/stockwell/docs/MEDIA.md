@@ -164,6 +164,15 @@ Admin uploads (Products → a product → **Media** tab) are streamed to
 with Range support. Great for development — but a local/ephemeral disk, so files
 are lost on redeploy on hosts like Vercel. Use Cloudinary for production.
 
+**Photos and videos (YAN-108).** The Media tab and the Add product popup have separate
+**Photos** and **Videos** sections, each with its own picker and limits. Every file
+uploads on its own with a progress bar; a failed file shows a translated reason and a
+**Retry** button, and never affects the others. Videos open in a preview that plays
+**with sound** (also before saving, in the Add product popup). **Replace** swaps a file
+in place (same position and cover status, same type); **Remove** asks first. If a file
+fails while a product is being created, the product is kept as a draft and its Media
+tab opens with the failed files ready to retry.
+
 **Upload rules and the photo minimum (YAN-109).** Each file is checked in the browser
 and again by the API (`src/lib/mediaRules.ts`): photos must be JPG, PNG or WebP (read
 from the file's bytes, so a renamed file is caught), up to 10 MB and at least 800 px on
@@ -209,12 +218,41 @@ global CDN, and *unsigned* uploads so **no API secret sits on the server**.
 ### How it works
 
 `src/lib/storage.ts` is the switch. `cloudinaryEnabled()` is true when either
-credential set is present (signed takes priority over unsigned). `storeMedia()`
-POSTs the file to Cloudinary's upload endpoint — adding an sha1 `signature` for
-signed mode, or the `upload_preset` for unsigned — otherwise it writes to local
-disk. Deleting a media item always removes the DB row; local files are unlinked,
-while remote (Cloudinary/seed) assets are left in place (prune them in the
-Cloudinary dashboard if needed).
+credential set is present (signed takes priority over unsigned).
+
+**Uploads go straight from the admin browser to Cloudinary (YAN-108).** Vercel
+Functions refuse request bodies over **4.5 MB**, so a phone video can't pass through
+the API. Each file is uploaded on its own:
+
+1. `POST /api/products/[id]/media/sign` with `{ name, type, size }` — admin-only, checks
+   the format and size limits, and returns `{ mode: 'direct', uploadUrl, fields }`
+   (a signature limited to the folder and that media type's formats; the API secret
+   never leaves the server) or `{ mode: 'server' }` when Cloudinary isn't configured.
+2. `direct`: the browser uploads to Cloudinary with real progress, then registers the
+   result with `POST /api/products/[id]/media` (or `PUT …/media/[mediaId]` to replace)
+   as JSON `{ uploads: [{ name, url, type, format, bytes, width, height, durationS,
+   hasAudio }] }`. The API accepts only `https://res.cloudinary.com/<your cloud>/…`
+   URLs of the right type and re-checks format, size and photo resolution.
+   `server`: the file is posted as multipart (local disk in dev).
+3. If saving the row fails after the Cloudinary upload, **Retry** re-sends only the
+   registration; an unsaved asset is logged (`[media] … is on Cloudinary but was not
+   saved`) and can be pruned in the dashboard.
+
+On Vercel (`VERCEL` env set) with no Cloudinary, uploads are refused with a clear
+"storage" error instead of writing to the read-only, wiped-on-deploy disk
+(`ALLOW_LOCAL_UPLOADS=1` overrides this; don't use it on Vercel).
+
+**Video metadata.** `product_media` stores `duration_s`, `width`, `height`,
+`has_audio` and `poster_url` (all nullable; older rows have none). They come from the
+MP4/MOV header (`src/lib/videoMeta.ts`, read in the browser and on the server), then
+Cloudinary's upload response, then the browser's `<video>` element (WebM). The poster
+is Cloudinary's first frame (`/video/upload/so_0/….jpg`); local uploads have none.
+The shop APIs expose them as optional `ShopMedia` fields (`poster`, `duration`,
+`hasAudio`, `width`, `height`); the reels hide the speaker when `hasAudio` is false.
+
+**Deleting / replacing** always updates the DB row first. The old file is removed
+best-effort: local files are unlinked, and with signed Cloudinary credentials the
+asset is destroyed (`/destroy`). Seed files and unsigned-mode assets are left in place.
 
 ### Alternatives
 

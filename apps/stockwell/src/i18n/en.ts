@@ -262,8 +262,18 @@ export const en = {
     unavailable: 'Image unavailable',
     videoUnavailable: 'Video unavailable',
     title: 'Photos & videos',
-    help: 'Shown to customers in the storefront app. The first photo is the cover. Drag to reorder, or use the arrow buttons. Photos: JPG, PNG or WebP, at least {min} px on the short side, up to {photoMb} MB. Videos: MP4, MOV or WebM, up to {videoMb} MB.',
-    add: 'Add photos or videos',
+    photosTitle: 'Photos',
+    videosTitle: 'Videos',
+    photosHelp:
+      'Add photos one at a time or several together — they add up. JPG, PNG or WebP, at least {min} px on the short side, up to {mb} MB each. The first photo is the cover. Drag or use the arrow buttons to reorder.',
+    videosHelp:
+      'MP4, MOV or WebM, up to {mb} MB each. MP4 (H.264 + AAC) plays best on iPhones. Open a video to play it with sound.',
+    addPhotos: 'Add photos',
+    addVideos: 'Add videos',
+    noPhotos: 'No photos yet.',
+    noVideos: 'No videos yet. Add a short clip to show this product in Discover.',
+    waiting: 'Waiting…',
+    noSound: 'No sound',
     uploading: 'Uploading…',
     uploaded_one: 'Uploaded {count} file',
     uploaded_other: 'Uploaded {count} files',
@@ -272,7 +282,6 @@ export const en = {
     removeFailed: 'Could not remove it. Please try again.',
     reordered: 'New order saved',
     reorderFailed: 'Could not save the new order. Please try again.',
-    empty: 'No media yet. Upload photos or a short video of this product.',
     cover: 'Cover',
     video: 'Video',
     photoN: 'Photo {n}',
@@ -302,17 +311,23 @@ export const en = {
       unsupported: '{name}: use JPG, PNG or WebP photos, or MP4, MOV or WebM videos.',
       tooLarge: '{name} is larger than {limitMb} MB.',
       notAnImage: '{name} isn’t a valid JPG, PNG or WebP photo.',
-      tooSmall: '{name} is {width}×{height} px. Photos need at least {min} px on the short side.',
+      tooSmall:
+        '{name} is too small ({width}×{height} px). Photos need at least {min} px on the short side — use the original camera photo, not a screenshot.',
       typeMismatch: '{name}: pick another {expected} — this media’s type can’t change.',
+      storage: '{name}: the file couldn’t be saved to storage. Please try again.',
+      network: '{name}: the upload was interrupted. Check the connection and retry.',
     },
   },
 
   // Extra sections in the Add product popup and the product Gifting tab.
   productForm: {
+    mediaPartial_one:
+      'Saved “{name}” as a draft, but {count} file didn’t upload. Retry it in the Media tab.',
+    mediaPartial_other:
+      'Saved “{name}” as a draft, but {count} files didn’t upload. Retry them in the Media tab.',
     customize: 'Customize',
     hideCustomize: 'Hide customization',
     publishing: 'Publishing…',
-    mediaFailed: 'Product created, but uploading its photos/videos failed: {error}',
     giftTitle: 'Gift finder details',
     giftHelp:
       'Tag this product so customers can discover it with Find a gift in the storefront. Leave everything empty if it isn’t a gift item.',

@@ -104,11 +104,20 @@ Demo logins (password `stockwell123`): `admin@stockwell.app` (admin),
 ### Product media (images + videos)
 - Table `product_media` (`apps/stockwell/src/db/schema.ts`); many per product,
   ordered, first = cover.
-- Admin: Products → open a product → **Media** tab (upload multiple, reorder by drag or
-  ← / → buttons, **Set as cover**, delete), and the same grid in the Add product popup
-  (`ProductMediaGrid.tsx`, shared by `MediaPicker.tsx` and `MediaTab`).
+- Admin: Products → open a product → **Media** tab, and the Add product popup. Both use
+  `MediaSections` (`ProductMediaGrid.tsx`): separate **Photos** and **Videos** sections with
+  per-type pickers, per-file progress + retry, play-with-sound preview, replace in place,
+  remove with confirmation, reorder (drag or ← / →) and **Set as cover** (first photo).
+  YAN-108.
+- Uploads (`src/lib/uploadMedia.ts`): `POST …/media/sign` → with Cloudinary, the browser
+  uploads **directly** to it (Vercel's 4.5 MB body limit) and registers the result as JSON;
+  otherwise multipart to the API. Server side: `src/lib/mediaApi.ts`. Video metadata
+  (`duration_s`, `width`, `height`, `has_audio`, `poster_url`, nullable) comes from
+  `src/lib/videoMeta.ts` + Cloudinary, and is exposed as optional `ShopMedia` fields via
+  `toShopMedia()` in `@stockwell/shared`.
 - Upload/list/reorder (`PATCH { order }`)/delete:
-  `apps/stockwell/src/app/api/products/[id]/media/route.ts`.
+  `apps/stockwell/src/app/api/products/[id]/media/route.ts`; replace:
+  `…/media/[mediaId]/route.ts` (`PUT`); sign: `…/media/sign/route.ts`. All admin-only.
 - **Publishing needs ≥ `MIN_PRODUCT_PHOTOS` (3) photos** (videos don't count;
   `missingForActivation(p, { imageCount })` → `missing: ['photos']`). Drafts can have any
   number. Products already active stay live (grandfathered) with a "Needs photos" badge

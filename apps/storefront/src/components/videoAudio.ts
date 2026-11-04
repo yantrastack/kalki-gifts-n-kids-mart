@@ -37,6 +37,16 @@ export function audioPresence(el: VideoLike, minPlayedSec = 1): AudioPresence {
   return 'unknown';
 }
 
+/**
+ * What the shop's stored metadata says about sound (`ShopMedia.hasAudio`, YAN-108), known
+ * before the video loads. Absent (older media) = unknown, so the browser decides.
+ */
+export function storedAudioPresence(hasAudio?: boolean | null): AudioPresence {
+  if (hasAudio === true) return 'yes';
+  if (hasAudio === false) return 'no';
+  return 'unknown';
+}
+
 /** Merge a new reading: once a video is known to have sound, it keeps it. */
 export function mergePresence(prev: AudioPresence, next: AudioPresence): AudioPresence {
   if (prev === 'yes' || next === 'yes') return 'yes';

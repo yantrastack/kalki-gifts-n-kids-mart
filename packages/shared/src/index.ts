@@ -12,7 +12,41 @@ export type ShopMedia = {
   id: string;
   url: string;
   type: 'image' | 'video';
+  /** Videos only: still frame to show while the video loads. */
+  poster?: string;
+  /** Videos only: length in seconds. */
+  duration?: number;
+  /** Videos only: false = no audio track (the reels hide the speaker). Absent = unknown. */
+  hasAudio?: boolean;
+  width?: number;
+  height?: number;
 };
+
+/** A product_media row as stored (nullable metadata columns; older rows have none). */
+export type MediaRow = {
+  id: string;
+  url: string;
+  type: string;
+  posterUrl?: string | null;
+  durationS?: number | null;
+  width?: number | null;
+  height?: number | null;
+  hasAudio?: boolean | null;
+};
+
+/**
+ * Maps a stored media row to the public `ShopMedia` shape. Metadata is only included when
+ * known, so older rows keep the original `{ id, url, type }` JSON.
+ */
+export function toShopMedia(m: MediaRow): ShopMedia {
+  const out: ShopMedia = { id: m.id, url: m.url, type: m.type === 'video' ? 'video' : 'image' };
+  if (m.posterUrl) out.poster = m.posterUrl;
+  if (typeof m.durationS === 'number' && m.durationS > 0) out.duration = m.durationS;
+  if (typeof m.hasAudio === 'boolean') out.hasAudio = m.hasAudio;
+  if (typeof m.width === 'number' && m.width > 0) out.width = m.width;
+  if (typeof m.height === 'number' && m.height > 0) out.height = m.height;
+  return out;
+}
 
 /** A sellable product as exposed by GET /api/shop/products (no cost/supplier data). */
 export type ShopProduct = {

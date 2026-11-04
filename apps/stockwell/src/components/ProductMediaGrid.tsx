@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { MIN_PHOTO_SIDE, MIN_PRODUCT_PHOTOS } from '@stockwell/shared';
 import { Icon } from './Icon';
 import { useI18n } from '@/i18n';
@@ -18,7 +18,19 @@ import {
  * yet) and the product Media tab (saved media). YAN-109.
  */
 
-export type GridItem = { key: string; url: string; type: 'image' | 'video'; name?: string };
+export type GridItem = {
+  key: string;
+  url: string;
+  type: 'image' | 'video';
+  name?: string;
+  poster?: string | null;
+  durationS?: number | null;
+  hasAudio?: boolean | null;
+};
+
+/** 75.4 → "1:15". */
+export const clock = (s: number) =>
+  `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 type T = (k: string, p?: Record<string, any>) => string;
 
@@ -44,20 +56,6 @@ export async function screenFiles(
     else if (res.problem) problems.push(res.problem);
   }
   return { accepted, problems };
-}
-
-/** Help text under the section title, with the current limits filled in. */
-export function MediaHelp() {
-  const { t } = useI18n();
-  return (
-    <p className="muted tiny" style={{ marginBottom: 12 }}>
-      {t('media.help', {
-        min: MIN_PHOTO_SIDE,
-        photoMb: MAX_PHOTO_BYTES >> 20,
-        videoMb: MAX_VIDEO_BYTES >> 20,
-      })}
-    </p>
-  );
 }
 
 /** "Photos: n / 3 minimum", plus how many more are needed to publish. */
@@ -94,6 +92,8 @@ export function ProductMediaGrid({
   onReplace,
   disabled = false,
   canEdit = true,
+  showCover = true,
+  showKind = true,
 }: {
   items: GridItem[];
   onMove: (from: number, to: number) => void;
@@ -102,6 +102,10 @@ export function ProductMediaGrid({
   onReplace?: (index: number, file: File) => void;
   disabled?: boolean;
   canEdit?: boolean;
+  /** Mark the first tile as the cover and offer "Set as cover" (photos only). */
+  showCover?: boolean;
+  /** Show the "Video" badge (only needed when photos and videos are mixed). */
+  showKind?: boolean;
 }) {
   const { t } = useI18n();
   const [failed, setFailed] = useState<Set<string>>(new Set());
@@ -160,8 +164,12 @@ export function ProductMediaGrid({
               position: 'relative',
               borderRadius: 'var(--r-md)',
               overflow: 'hidden',
-              border: `${i === 0 ? 2 : 1}px solid ${
-                dragOver === i ? 'var(--accent)' : i === 0 ? 'var(--accent)' : 'var(--border)'
+              border: `${showCover && i === 0 ? 2 : 1}px solid ${
+                dragOver === i
+                  ? 'var(--accent)'
+                  : showCover && i === 0
+                    ? 'var(--accent)'
+                    : 'var(--border)'
               }`,
               background: 'var(--bg-muted)',
               aspectRatio: '1',
@@ -203,6 +211,7 @@ export function ProductMediaGrid({
                 >
                   <video
                     src={m.url}
+                    poster={m.poster || undefined}
                     muted
                     playsInline
                     preload="metadata"
@@ -243,7 +252,7 @@ export function ProductMediaGrid({
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             )}
-            {i === 0 && (
+            {showCover && i === 0 && (
               <span
                 className="badge badge-accent"
                 style={{ position: 'absolute', top: 6, left: 6 }}
@@ -251,12 +260,22 @@ export function ProductMediaGrid({
                 <Icon name="star" size={10} /> {t('media.cover')}
               </span>
             )}
-            {m.type === 'video' && (
+            {m.type === 'video' && (showKind || m.durationS || m.hasAudio === false) && (
               <span
-                className="badge"
-                style={{ position: 'absolute', top: i === 0 ? 30 : 6, left: 6 }}
+                style={{
+                  position: 'absolute',
+                  top: showCover && i === 0 ? 30 : 6,
+                  left: 6,
+                  display: 'flex',
+                  gap: 4,
+                  flexWrap: 'wrap',
+                }}
               >
-                {t('media.video')}
+                {showKind && <span className="badge">{t('media.video')}</span>}
+                {m.durationS ? <span className="badge">{clock(m.durationS)}</span> : null}
+                {m.hasAudio === false && (
+                  <span className="badge badge-warn">{t('media.noSound')}</span>
+                )}
               </span>
             )}
             {onRemove && (
@@ -269,25 +288,23 @@ export function ProductMediaGrid({
               />
             )}
             {onReplace && canEdit && (
-              <>
-                <TileButton
-                  icon="refresh"
-                  label={`${t('media.replace')}: ${label}`}
-                  disabled={disabled}
-                  onClick={() => {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = m.type === 'video' ? VIDEO_ACCEPT : PHOTO_ACCEPT;
-                    input.onchange = () => {
-                      const f = input.files?.[0];
-                      if (f) onReplace(i, f);
-                    };
-                    replaceRef.current = { index: i, input };
-                    input.click();
-                  }}
-                  style={{ top: 4, right: onRemove ? 34 : 4 }}
-                />
-              </>
+              <TileButton
+                icon="refresh"
+                label={`${t('media.replace')}: ${label}`}
+                disabled={disabled}
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = m.type === 'video' ? VIDEO_ACCEPT : PHOTO_ACCEPT;
+                  input.onchange = () => {
+                    const f = input.files?.[0];
+                    if (f) onReplace(i, f);
+                  };
+                  replaceRef.current = { index: i, input };
+                  input.click();
+                }}
+                style={{ top: 4, right: onRemove ? 34 : 4 }}
+              />
             )}
             {editable && (
               <div
@@ -307,7 +324,7 @@ export function ProductMediaGrid({
                   disabled={i === 0}
                   onClick={() => onMove(i, i - 1)}
                 />
-                {i > 0 && (
+                {showCover && i > 0 && (
                   <TileButton
                     icon="star"
                     label={`${t('media.setCover')}: ${label}`}
@@ -362,5 +379,238 @@ function TileButton({
     >
       <Icon name={icon} size={12} />
     </button>
+  );
+}
+
+/* ---------------------------------------------------------------- YAN-108 sections */
+
+/**
+ * One file's upload state (progress list). A failed file keeps its File handle so it can
+ * be retried without picking it again.
+ */
+export type UploadEntry = {
+  key: string;
+  name: string;
+  kind: 'image' | 'video';
+  percent: number; // 0–100
+  status: 'waiting' | 'uploading' | 'done' | 'error';
+  error?: string;
+  file?: File;
+  replaceId?: string; // set when this entry replaces an existing media item
+};
+
+/** Per-file progress, with Retry / Dismiss for a failed file when handlers are given. */
+export function UploadList({
+  uploads,
+  onRetry,
+  onDismiss,
+}: {
+  uploads: UploadEntry[];
+  onRetry?: (u: UploadEntry) => void;
+  onDismiss?: (u: UploadEntry) => void;
+}) {
+  const { t } = useI18n();
+  const shown = uploads.filter((u) => u.status !== 'done');
+  if (!shown.length) return null;
+  return (
+    <ul
+      aria-live="polite"
+      style={{ marginTop: 10, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}
+    >
+      {shown.map((u) => (
+        <li
+          key={u.key}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, flexWrap: 'wrap' }}
+        >
+          <span
+            style={{
+              flex: '1 1 120px',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {u.name}
+          </span>
+          {u.status === 'waiting' && <span className="muted tiny">{t('media.waiting')}</span>}
+          {u.status === 'uploading' && (
+            <>
+              <progress
+                value={u.percent}
+                max={100}
+                style={{ width: 120 }}
+                aria-label={`${t('media.uploading')} ${u.name}`}
+              />
+              <span className="muted tiny">{u.percent}%</span>
+            </>
+          )}
+          {u.status === 'error' && (
+            <>
+              <span className="field-error tiny" role="alert" style={{ margin: 0 }}>
+                {u.error}
+              </span>
+              {onRetry && u.file && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => onRetry(u)}
+                >
+                  <Icon name="refresh" size={11} /> {t('media.retry')}
+                </button>
+              )}
+              {onDismiss && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={`${t('media.dismiss')}: ${u.name}`}
+                  title={t('media.dismiss')}
+                  onClick={() => onDismiss(u)}
+                >
+                  <Icon name="x" size={11} />
+                </button>
+              )}
+            </>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+type Kind = 'image' | 'video';
+
+type SectionProps = {
+  items: GridItem[];
+  onAdd?: (kind: Kind, files: File[]) => void;
+  onMove: (kind: Kind, from: number, to: number) => void;
+  onRemove?: (index: number) => void;
+  onPreview?: (index: number) => void;
+  onReplace?: (index: number, file: File) => void;
+  errors?: Partial<Record<Kind, string[]>>;
+  uploads?: UploadEntry[];
+  onRetry?: (u: UploadEntry) => void;
+  onDismiss?: (u: UploadEntry) => void;
+  disabled?: boolean;
+  canAdd?: boolean;
+  canEdit?: boolean;
+};
+
+/**
+ * The product media manager body: a Photos section and a Videos section, each with its
+ * own picker (accept limited to that type), limits text, progress and tiles. `items` is
+ * the saved/chosen media in its overall order; the callbacks get indexes into `items`
+ * (remove/preview/replace) or positions within one section (move). Used by the Add
+ * product popup and the product Media tab. YAN-108.
+ */
+export function MediaSections(props: SectionProps) {
+  return (
+    <div style={{ display: 'grid', gap: 22 }}>
+      <MediaSection kind="image" {...props} />
+      <MediaSection kind="video" {...props} />
+    </div>
+  );
+}
+
+function MediaSection({
+  kind,
+  items,
+  onAdd,
+  onMove,
+  onRemove,
+  onPreview,
+  onReplace,
+  errors = {},
+  uploads = [],
+  onRetry,
+  onDismiss,
+  disabled = false,
+  canAdd = true,
+  canEdit = true,
+}: SectionProps & { kind: Kind }) {
+  const { t } = useI18n();
+  const id = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isPhoto = kind === 'image';
+  const sectionErrors = errors[kind] ?? [];
+  // Overall indexes of this section's items, in order.
+  const slots: number[] = [];
+  items.forEach((m, i) => {
+    if (m.type === kind) slots.push(i);
+  });
+  const at = (sectionIndex: number) => slots[sectionIndex];
+
+  return (
+    <section aria-labelledby={`${id}-title`}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <h5 id={`${id}-title`} style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>
+          {isPhoto ? t('media.photosTitle') : t('media.videosTitle')}{' '}
+          <span className="muted" style={{ fontWeight: 400 }}>
+            ({slots.length})
+          </span>
+        </h5>
+        {canAdd && onAdd && (
+          <>
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              accept={isPhoto ? PHOTO_ACCEPT : VIDEO_ACCEPT}
+              style={{ display: 'none' }}
+              tabIndex={-1}
+              onChange={(e) => {
+                const list = Array.from(e.target.files ?? []);
+                e.target.value = '';
+                if (list.length) onAdd(kind, list);
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              style={{ marginLeft: 'auto' }}
+              disabled={disabled}
+              onClick={() => inputRef.current?.click()}
+            >
+              <Icon name="plus" size={12} /> {isPhoto ? t('media.addPhotos') : t('media.addVideos')}
+            </button>
+          </>
+        )}
+      </div>
+      <p className="muted tiny" style={{ margin: '6px 0 0' }}>
+        {isPhoto
+          ? t('media.photosHelp', { min: MIN_PHOTO_SIDE, mb: MAX_PHOTO_BYTES >> 20 })
+          : t('media.videosHelp', { mb: MAX_VIDEO_BYTES >> 20 })}
+      </p>
+      {sectionErrors.length > 0 && (
+        <ul className="field-error" role="alert" style={{ marginTop: 8, paddingLeft: 16 }}>
+          {sectionErrors.map((e) => (
+            <li key={e}>{e}</li>
+          ))}
+        </ul>
+      )}
+      <UploadList
+        uploads={uploads.filter((u) => u.kind === kind)}
+        onRetry={onRetry}
+        onDismiss={onDismiss}
+      />
+      {isPhoto && <PhotoCount photos={slots.length} />}
+      {slots.length ? (
+        <ProductMediaGrid
+          items={slots.map((i) => items[i])}
+          disabled={disabled}
+          canEdit={canEdit}
+          showCover={isPhoto}
+          showKind={false}
+          onMove={(from, to) => onMove(kind, from, to)}
+          onRemove={onRemove ? (i) => onRemove(at(i)) : undefined}
+          onPreview={onPreview ? (i) => onPreview(at(i)) : undefined}
+          onReplace={onReplace ? (i, f) => onReplace(at(i), f) : undefined}
+        />
+      ) : (
+        <p className="muted tiny" style={{ padding: '12px 0 0', margin: 0 }}>
+          {isPhoto ? t('media.noPhotos') : t('media.noVideos')}
+        </p>
+      )}
+    </section>
   );
 }

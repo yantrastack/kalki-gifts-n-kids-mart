@@ -33,3 +33,74 @@ export const fakeWebpVp8x = (w: number, h: number) => {
   return b;
 };
 export const text = (s: string) => new TextEncoder().encode(s);
+
+/* YAN-108: a minimal MP4/MOV (ftyp, mdat, moov with one video and optionally one audio track). */
+
+const box = (type: string, ...parts: Uint8Array[]) => {
+  const size = 8 + parts.reduce((n, p) => n + p.length, 0);
+  const b = new Uint8Array(size);
+  new DataView(b.buffer).setUint32(0, size);
+  b.set(new TextEncoder().encode(type), 4);
+  let i = 8;
+  for (const p of parts) {
+    b.set(p, i);
+    i += p.length;
+  }
+  return b;
+};
+
+const hdlr = (handler: 'vide' | 'soun') => {
+  const c = new Uint8Array(25);
+  c.set(new TextEncoder().encode(handler), 8);
+  return box('hdlr', c);
+};
+
+export const fakeMp4 = ({
+  durationS = 12.5,
+  width = 1080,
+  height = 1920,
+  audio = true,
+  rotated = false,
+  moovFirst = true,
+  mdatBytes = 64,
+}: {
+  durationS?: number;
+  width?: number;
+  height?: number;
+  audio?: boolean;
+  /** Stored sideways with a 90° matrix, like an upright phone recording. */
+  rotated?: boolean;
+  moovFirst?: boolean;
+  mdatBytes?: number;
+} = {}) => {
+  const mvhd = new Uint8Array(100);
+  const mv = new DataView(mvhd.buffer);
+  mv.setUint32(12, 1000); // timescale
+  mv.setUint32(16, Math.round(durationS * 1000)); // duration
+
+  const tkhd = new Uint8Array(84);
+  const tk = new DataView(tkhd.buffer);
+  // Matrix: identity, or 90° (a=0, b=1, c=-1, d=0) in 16.16 fixed point.
+  const [a, b, c, d] = rotated ? [0, 0x10000, -0x10000, 0] : [0x10000, 0, 0, 0x10000];
+  tk.setInt32(40, a);
+  tk.setInt32(44, b);
+  tk.setInt32(52, c);
+  tk.setInt32(56, d);
+  // A rotated file stores the sensor size (landscape); the display size is swapped.
+  tk.setUint32(76, (rotated ? height : width) * 65536);
+  tk.setUint32(80, (rotated ? width : height) * 65536);
+
+  const video = box('trak', box('tkhd', tkhd), box('mdia', hdlr('vide')));
+  const sound = box('trak', box('tkhd', new Uint8Array(84)), box('mdia', hdlr('soun')));
+  const moov = box('moov', box('mvhd', mvhd), video, ...(audio ? [sound] : []));
+  const ftyp = box('ftyp', new TextEncoder().encode('isom\0\0\0\0isommp41'));
+  const mdat = box('mdat', new Uint8Array(mdatBytes));
+  const parts = moovFirst ? [ftyp, moov, mdat] : [ftyp, mdat, moov];
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let i = 0;
+  for (const p of parts) {
+    out.set(p, i);
+    i += p.length;
+  }
+  return out;
+};

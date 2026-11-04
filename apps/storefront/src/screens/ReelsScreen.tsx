@@ -32,6 +32,7 @@ import {
   createPlaybackGroup,
   isHidden,
   mergePresence,
+  storedAudioPresence,
   nativeAudioPresence,
   ReelPlayback,
   type ReelSound,
@@ -611,7 +612,12 @@ function Reel({
   // Tell the screen what the speaker should show for the slide on screen: nothing for a
   // photo or placeholder, and nothing for a video known to have no audio track.
   const current = media[mediaIndex];
-  const sound: ReelSound = current?.type === 'video' ? (audio[current.id] ?? 'unknown') : 'none';
+  // Stored metadata answers first (no speaker for a silent video, even before it loads);
+  // what the player detects can still upgrade it to "has sound".
+  const sound: ReelSound =
+    current?.type === 'video'
+      ? mergePresence(storedAudioPresence(current.hasAudio), audio[current.id] ?? 'unknown')
+      : 'none';
   useEffect(() => {
     if (active) onSound(product.id, sound);
   }, [active, sound, product.id, onSound]);
@@ -642,6 +648,7 @@ function Reel({
             item.type === 'video' ? (
               <ReelVideo
                 uri={mediaUrl(item.url)}
+                poster={item.poster ? mediaUrl(item.poster) : undefined}
                 width={width}
                 height={height}
                 active={active && mediaIndex === index}
@@ -859,6 +866,8 @@ function Scrim({ edge, height, max }: { edge: 'top' | 'bottom'; height: number; 
 
 type ReelVideoProps = {
   uri: string;
+  /** Still frame shown until the video can play (web). */
+  poster?: string;
   width: number;
   height: number;
   /** On screen (current reel and current slide): plays; otherwise paused. */
@@ -883,6 +892,7 @@ function ReelVideo(props: ReelVideoProps) {
 
 function WebReelVideo({
   uri,
+  poster,
   width,
   height,
   active,
@@ -960,6 +970,7 @@ function WebReelVideo({
   const video = createElement('video', {
     ref,
     src: uri,
+    poster,
     muted: true,
     loop: true,
     playsInline: true,
