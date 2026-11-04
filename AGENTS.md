@@ -127,7 +127,10 @@ Demo logins (password `stockwell123`): `admin@stockwell.app` (admin),
   goes in `public/seed/` (served statically), mapped by product ID in
   `src/db/seedMedia.ts`; **only CC0/owned photos with a row in the MEDIA.md licence
   record** (YAN-101, test-enforced). Missing/failed images show one shared placeholder
-  (`ProductImage`). Badges (`products.tag`) are translated codes from
+  (`ProductImage`, which remembers failed URLs for the session). Seed products with no
+  photo must be listed as exceptions in MEDIA.md (test-enforced). `pnpm --filter stockwell
+  media:audit` reports dead/orphan media rows on any DB (Turso too); `--apply` repairs
+  `product_media` only (YAN-112). Badges (`products.tag`) are translated codes from
   `PRODUCT_BADGES`. See [docs/MEDIA.md](apps/stockwell/docs/MEDIA.md).
 
 ### Gift Finder

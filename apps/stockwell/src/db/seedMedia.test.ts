@@ -69,6 +69,15 @@ describe('seed media files', () => {
     expect(new Set(first.map((r) => r.id)).size).toBe(first.length);
   });
 
+  it('records every seed product without a photo as an exception, with a reason (YAN-112)', () => {
+    const exceptions = mediaDoc.split('### Products without a photo (exceptions)')[1] ?? '';
+    for (const [id, name] of productNames) {
+      if (SEED_MEDIA[id]) continue;
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      expect(exceptions).toMatch(new RegExp(`\\| ${id} \\| ${escaped} \\| \\S`));
+    }
+  });
+
   it.each(entries)('$file belongs to a real seed product and is recorded', ({ id, file }) => {
     expect(productNames.has(id)).toBe(true);
     expect(file.startsWith(`${id}-`)).toBe(true);
