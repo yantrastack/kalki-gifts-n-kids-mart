@@ -33,6 +33,20 @@ export function ImageFallback({
 }
 
 /**
+ * URLs that failed to load this session. A remount (list scroll, navigation, the hover
+ * photo) shows the placeholder straight away instead of asking for the same 404 again.
+ * Cleared on reload, so a fixed image shows up next visit.
+ */
+const failedUris = new Set<string>();
+
+function markFailed(uri: string) {
+  if (failedUris.has(uri)) return;
+  failedUris.add(uri);
+  // Surface data problems (a dead media row looks like "no photo yet" otherwise).
+  if (__DEV__) console.warn(`[ProductImage] failed to load ${uri}`);
+}
+
+/**
  * A product photo that falls back to {@link ImageFallback} when there is no URL or the load
  * fails. `label` becomes the image's alt text (expo-image on web only turns
  * accessibilityLabel into <img alt>). Pass `priority` for images above the fold; the rest
@@ -65,7 +79,7 @@ export default function ProductImage({
 }) {
   // Remember which URL failed, so a new URL (e.g. a recycled list cell) gets a fresh try.
   const [failedUri, setFailedUri] = useState<string | null>(null);
-  if (!uri || failedUri === uri) {
+  if (!uri || failedUri === uri || failedUris.has(uri)) {
     if (hideOnError) return null;
     return <ImageFallback theme={theme} iconSize={iconSize} caption={caption} style={style} />;
   }
@@ -79,7 +93,10 @@ export default function ProductImage({
       loading={priority ? 'eager' : 'lazy'}
       recyclingKey={uri}
       accessibilityLabel={label}
-      onError={() => setFailedUri(uri)}
+      onError={() => {
+        markFailed(uri);
+        setFailedUri(uri);
+      }}
     />
   );
 }

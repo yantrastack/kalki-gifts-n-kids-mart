@@ -78,12 +78,34 @@ than borrowing a look-alike.
 **Known mismatch to fix with a shop photo:** p16 is sold as a *silver* pendant, but
 the CC0 locket photographed is antique bronze-toned.
 
-**Still without a verified photo** (placeholder shown): p1 Vanilla Bean Soy Candle,
-p2 Rose Gold Photo Frame, p3 Handcrafted Jewelry Box, p4 Teddy Bear Plush 12",
-p6 Personalized Ceramic Mug, p7 Sandalwood Perfume Gift Set, p8 Leather Bifold Wallet,
-p10 Copper Fairy String Lights, p17 Gourmet Tea Sampler Box, p19 Bamboo Desk Organizer,
-p20 Festive Diya Gift Set. The CC0 candidates found either showed a different product,
-a third-party brand label, or the item only incidentally (e.g. people holding lights).
+**Weak matches to replace with a shop photo** (kept until then, YAN-112): p13 shows a
+single card, not a *set*; p5 is a plain box of chocolates, not a hamper; p11's cover is
+embossed "2017".
+
+### Products without a photo (exceptions)
+
+These seed products show the storefront placeholder on purpose: no photo was found that
+is CC0 / public domain **and** shows that product with its stated material and type, and
+the rule is never to use a look-alike. Commons was searched again on 2026-11-04 (YAN-112)
+for CC0 files ≥ 1600 px on the short side, under several search terms per product; every
+candidate was checked by eye. Each row says why the best candidates were rejected. **The
+fix for each is a shop photo of the real stock item** (upload in the admin Media tab, which
+stores it on Cloudinary in production), or a new CC0 photo added under the rules above.
+A test checks that every seed product without seed media has a row here.
+
+| Product | Name | Why there is no photo yet |
+| --- | --- | --- |
+| p1 | Vanilla Bean Soy Candle | Every jar candle found carries a third-party brand label (Bath & Body Works, Yankee Candle, Porter & Plot); the unbranded ones are pillar candles or tea lights, not a soy candle in a jar. |
+| p2 | Rose Gold Photo Frame | No metallic rose-gold frame found; CC0 frames are museum gilt or carved wood, which would misstate the finish. |
+| p3 | Handcrafted Jewelry Box | Candidates are museum pieces (a gold-enamel Falize box, gem-studded caskets) or a Kashmiri writing box, not a gift-shop wooden or fabric jewellery box. |
+| p4 | Teddy Bear Plush 12" | Teddy bears appear only in cluttered scenes, in costumes, or as event mascots with logos; no plain plush bear as a product shot. |
+| p6 | Personalized Ceramic Mug | Mugs found carry third-party logos or slogans, or are novelty shapes; none shows a personalised mug. |
+| p7 | Sandalwood Perfume Gift Set | Only branded bottles, antique labelled bottles or shop shelves; no gift set. |
+| p8 | Leather Bifold Wallet | Not searched again: out of stock, so not shown in the storefront. |
+| p10 | Copper Fairy String Lights | The best candidate ("Coiled Fairy Lights", CC0) is star LEDs on a thick jute-style cord, not copper wire; the rest are street or Christmas displays. |
+| p17 | Gourmet Tea Sampler Box | Tea boxes found are branded retail packs (Tazo, Lipton, Chinese brands) or warehouse crates. |
+| p19 | Bamboo Desk Organizer | No bamboo organiser found; the one desk organiser is a branded design in another wood. |
+| p20 | Festive Diya Gift Set | Diyas appear singly or in festival scenes; no photo shows a set of diyas as a product. |
 
 ## Missing or broken images
 
@@ -91,7 +113,29 @@ Every product image in the storefront goes through `ProductImage`
 (`apps/storefront/src/components/ProductImage.tsx`). No URL, or a failed load,
 shows the one shared placeholder (`ImageFallback`), on the card, product gallery,
 cart and Discover. Images carry translated alt text ("Photo of {name}"); the first
-cards above the fold load with high priority, the rest lazily.
+cards above the fold load with high priority, the rest lazily. A URL that fails is
+remembered for the session, so remounting a card shows the placeholder without asking for
+the same 404 again, and in development each failure is logged once (`[ProductImage]` in
+the console).
+
+### Auditing product media (local or production)
+
+A placeholder can mean "no photo yet" or "the photo row points at a file that is gone".
+To tell them apart, run from `apps/stockwell` (YAN-112):
+
+```bash
+pnpm media:audit                              # read-only report on DATABASE_URL (default local.db)
+pnpm media:audit --base-url https://your.app  # also requests every media URL, lists non-200s
+pnpm media:audit --apply                      # repair product_media (see below)
+```
+
+Set `DATABASE_URL` / `DATABASE_AUTH_TOKEN` to the Turso values to audit production. The
+report lists orphan rows, `/seed/*` rows whose file is no longer shipped (a database seeded
+before YAN-101 still points at the deleted loremflickr files), and visible products with no
+working photo. `--apply` deletes only those orphan and dead seed rows and adds the current
+seed photos to seed products left with no media; it never changes `products`, admin
+uploads or remote (Cloudinary) URLs, and running it twice does nothing the second time.
+Do not run `db:seed` on production to fix media: it wipes every table.
 
 ## Product badges
 
