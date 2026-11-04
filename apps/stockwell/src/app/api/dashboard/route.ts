@@ -2,18 +2,13 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { desc, gte } from 'drizzle-orm';
 import { withCover } from '@/lib/productPhotos';
-import {
-  dailySeries,
-  daysAgo,
-  parseOrderDate,
-  parseRange,
-  rangeDays,
-  rangeStartSql,
-} from '@/lib/dashboardRange';
+import { dailySeries, parseRange, rangeDays, rangeStartSql } from '@/lib/dashboardRange';
+import { RECENT_ORDERS_LIMIT, latestOrders, orderPlacedAt } from '@/lib/salesOrders';
 
 // `?range=7d|30d|90d` (default 30d) bounds the date-based data: the daily
-// revenue series, recent sales orders and recent stock moves. Stock/catalog
-// KPIs and the category mix are current snapshots and ignore the range.
+// revenue series and recent stock moves. Recent sales orders are the latest
+// orders whatever the range (YAN-115). Stock/catalog KPIs and the category mix
+// are current snapshots and ignore the range.
 export async function GET(req: NextRequest) {
   const range = parseRange(req.nextUrl.searchParams.get('range'));
   const days = rangeDays(range);
@@ -55,21 +50,14 @@ export async function GET(req: NextRequest) {
     .map((p) => ({ name: p.name, sold: p.stock, revenue: Math.round(p.price * p.stock) }));
 
   // Revenue excludes cancelled orders.
-  const datedOrders = salesOrders.map((o) => ({ o, date: parseOrderDate(o.date, today) }));
   const revenue = dailySeries(
-    datedOrders
-      .filter(({ o }) => o.status !== 'cancelled')
-      .map(({ o, date }) => ({ date, amount: o.total })),
+    salesOrders
+      .filter((o) => o.status !== 'cancelled')
+      .map((o) => ({ date: orderPlacedAt(o, today), amount: o.total ?? 0 })),
     days,
     today,
   );
-  const recentOrders = datedOrders
-    .filter(({ date }) => date && daysAgo(date, today) >= 0 && daysAgo(date, today) < days)
-    .sort(
-      (a, b) =>
-        (b.date as Date).getTime() - (a.date as Date).getTime() || (a.o.id < b.o.id ? 1 : -1),
-    )
-    .map(({ o }) => o);
+  const recentOrders = latestOrders(salesOrders, RECENT_ORDERS_LIMIT, today);
 
   return NextResponse.json({
     range,
