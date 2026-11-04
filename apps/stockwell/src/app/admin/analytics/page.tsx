@@ -116,6 +116,7 @@ export default function AnalyticsPage() {
                   <span className="muted mono" style={{ fontSize: 11, width: 16 }}>
                     0{i + 1}
                   </span>
+                  <UI.ProductThumb name={p.name} size={28} src={p.cover} />
                   <span
                     style={{
                       fontSize: 'var(--t-base)',

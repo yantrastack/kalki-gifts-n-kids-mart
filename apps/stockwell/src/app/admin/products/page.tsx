@@ -4,6 +4,7 @@ import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
 import { jget, jsend } from '@/lib/api';
 import AddProductModal from '@/components/AddProductModal';
+import ProductCarousel from '@/components/ProductCarousel';
 import ImportProductsModal from '@/components/ImportProductsModal';
 import { useI18n } from '@/i18n';
 import { useUser } from '@/components/UserContext';
@@ -36,6 +37,18 @@ function NeedsPhotosBadge({ p }: { p: any }) {
       style={{ whiteSpace: 'nowrap' }}
     >
       {t('media.needsPhotos', { n: Number(p.photoCount) || 0, min: MIN_PRODUCT_PHOTOS })}
+    </span>
+  );
+}
+
+// "1 video" — shown under the photo badge so a product's videos are visible at a glance.
+function VideoCountBadge({ p }: { p: any }) {
+  const { t } = useI18n();
+  const count = Number(p.videoCount) || 0;
+  if (!count) return null;
+  return (
+    <span className="badge" style={{ whiteSpace: 'nowrap' }}>
+      <Icon name="play" size={10} /> {t('media.videoCount', { count })}
     </span>
   );
 }
@@ -474,7 +487,7 @@ export default function ProductsPage() {
                   <tr key={p.id} onClick={() => setOpenProduct(p)}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <ProductThumb name={p.name} />
+                        <ProductThumb name={p.name} src={p.cover} />
                         <div style={{ minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <div
@@ -490,6 +503,7 @@ export default function ProductsPage() {
                             </div>
                             {p.lifecycle && p.lifecycle !== 'active' && statusBadge(p.lifecycle)}
                             <NeedsPhotosBadge p={p} />
+                            <VideoCountBadge p={p} />
                           </div>
                           <div style={{ fontSize: 'var(--t-xs)', color: 'var(--fg-tertiary)' }}>
                             {p.brand}
@@ -576,15 +590,7 @@ export default function ProductsPage() {
           >
             {pageItems.map((p) => (
               <div key={p.id} onClick={() => setOpenProduct(p)} className="prod-card">
-                <div className="img-placeholder" style={{ aspectRatio: 1, marginBottom: 10 }}>
-                  <span>
-                    {p.name
-                      .split(' ')
-                      .slice(0, 2)
-                      .map((w: string) => w[0])
-                      .join('')}
-                  </span>
-                </div>
+                <ProductCarousel photos={p.photos ?? []} media={p.gallery} name={p.name} />
                 <div
                   style={{
                     display: 'flex',
@@ -623,6 +629,7 @@ export default function ProductsPage() {
                     {statusBadge(p.status)}
                     {p.lifecycle && p.lifecycle !== 'active' && statusBadge(p.lifecycle)}
                     <NeedsPhotosBadge p={p} />
+                    <VideoCountBadge p={p} />
                   </div>
                 </div>
                 <div className="spread" style={{ marginTop: 10 }}>
@@ -835,21 +842,14 @@ function ProductDetail({
           gap: 12,
         }}
       >
-        <div className="img-placeholder" style={{ width: 56, height: 56 }}>
-          <span>
-            {p.name
-              .split(' ')
-              .slice(0, 2)
-              .map((w: string) => w[0])
-              .join('')}
-          </span>
-        </div>
+        <UI.ProductThumb name={p.name} size={56} src={p.cover} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <h3 style={{ margin: 0, fontSize: 'var(--t-lg)', fontWeight: 600 }}>{p.name}</h3>
             {statusBadge(p.status)}
             {p.lifecycle && p.lifecycle !== 'active' && statusBadge(p.lifecycle)}
             <NeedsPhotosBadge p={p} />
+            <VideoCountBadge p={p} />
           </div>
           <div className="muted tiny mono" style={{ marginTop: 4 }}>
             {p.sku} · {p.barcode}

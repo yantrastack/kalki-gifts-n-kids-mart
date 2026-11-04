@@ -352,6 +352,8 @@ export type EngagementRow = {
   shares: number;
   buys: number;
   score: number;
+  /** Cover photo URL, when the product has one. */
+  cover?: string | null;
 };
 export type EngagementSummary = {
   totals: { views: number; likes: number; shares: number; buys: number; sessions: number };

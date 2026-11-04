@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
+import ProductPhoto from '@/components/ProductPhoto';
 import { useI18n } from '@/i18n';
 import { jget, jsend } from '@/lib/api';
 import { buildSaleLines } from '@/lib/invoice';
@@ -88,6 +89,7 @@ export default function POSPage() {
             {
               id: p.id,
               name: p.name,
+              cover: p.cover,
               sku: p.sku,
               hsnCode: p.hsnCode,
               price: p.price,
@@ -255,13 +257,7 @@ export default function POSPage() {
               {filtered.map((p) => (
                 <button key={p.id} onClick={() => addToCart(p)} className="pos-prod">
                   <div className="img-placeholder" style={{ aspectRatio: 1, marginBottom: 8 }}>
-                    <span>
-                      {p.name
-                        .split(' ')
-                        .slice(0, 2)
-                        .map((w: string) => w[0])
-                        .join('')}
-                    </span>
+                    <ProductPhoto src={p.cover} name={p.name} />
                   </div>
                   <div className="pos-prod-name">{p.name}</div>
                   <div className="spread" style={{ marginTop: 4 }}>
@@ -321,7 +317,7 @@ export default function POSPage() {
           ) : (
             cart.map((i) => (
               <div key={i.id} className="pos-line">
-                <ProductThumb name={i.name} size={34} />
+                <ProductThumb name={i.name} size={34} src={i.cover} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="pos-line-name">{i.name}</div>
                   <div className="muted tiny mono">{fmt.money(i.price)} each</div>

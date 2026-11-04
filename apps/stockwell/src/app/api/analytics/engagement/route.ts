@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { sql } from 'drizzle-orm';
 import type { EngagementRow, EngagementSummary } from '@stockwell/shared';
+import { coverOf, loadPhotos } from '@/lib/productPhotos';
 
 // Admin/staff (protected by middleware). Rolls up product_events into per-product
 // engagement + totals for the Engagement dashboard.
@@ -29,6 +30,7 @@ export async function GET() {
     products.map((p) => [p.id, { name: p.name, category: p.category ?? '' }]),
   );
   const n = (v: number) => Math.max(Number(v) || 0, 0);
+  const photos = await loadPhotos();
 
   const rows: EngagementRow[] = grouped.map((g) => {
     const meta = nameById.get(g.productId);
@@ -40,6 +42,7 @@ export async function GET() {
       id: g.productId,
       name: meta?.name ?? g.productId,
       category: meta?.category ?? '',
+      cover: coverOf(photos, g.productId),
       views,
       likes,
       shares,

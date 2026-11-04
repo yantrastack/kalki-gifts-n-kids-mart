@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
+import ProductPhoto from './ProductPhoto';
 
 // Currency defaults to the Indian rupee with lakh/crore-aware compacting.
 export const fmt = {
@@ -61,16 +62,20 @@ export function statusBadge(status: string) {
   );
 }
 
-export function ProductThumb({ name, size = 36 }: { name: string; size?: number }) {
-  const initials = (name || '?')
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
+// The product's cover photo as a small square thumbnail. Without a photo (or if the image
+// fails to load) it shows the initials placeholder, so rows never change size.
+export function ProductThumb({
+  name,
+  size = 36,
+  src,
+}: {
+  name: string;
+  size?: number;
+  src?: string | null;
+}) {
   return (
     <div className="product-thumb" style={{ width: size, height: size }}>
-      {initials}
+      <ProductPhoto src={src} name={name} size={size} />
     </div>
   );
 }

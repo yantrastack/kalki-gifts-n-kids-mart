@@ -4,6 +4,7 @@ import { deriveStatus } from '@/lib/status';
 import { buildNewProductFromLine, priceRefreshPatch } from '@/lib/purchase';
 import { validatePricing } from '@/lib/catalog';
 import { eq, inArray } from 'drizzle-orm';
+import { withCover } from '@/lib/productPhotos';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .from(schema.purchaseOrderItems)
     .where(eq(schema.purchaseOrderItems.poId, id))
     .all();
-  return NextResponse.json({ ...po, lines: items });
+  return NextResponse.json({ ...po, lines: await withCover(items, 'productId') });
 }
 
 type Line = {

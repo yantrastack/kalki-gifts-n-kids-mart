@@ -114,7 +114,14 @@ export default function InventoryPage() {
               {m.qty > 0 ? '+' : ''}
               {m.qty}
             </span>
-            <span> · {m.product}</span>
+            <span>
+              {' '}
+              ·{' '}
+              <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 6 }}>
+                <ProductThumb name={m.product || '?'} size={22} src={m.cover} />
+              </span>
+              {m.product}
+            </span>
           </div>
           <div
             className="tl-meta"
@@ -240,7 +247,7 @@ export default function InventoryPage() {
                   <tr key={p.id}>
                     <td>
                       <div className="row">
-                        <ProductThumb name={p.name} />
+                        <ProductThumb name={p.name} src={p.cover} />
                         <div style={{ fontWeight: 500 }}>{p.name}</div>
                       </div>
                     </td>
