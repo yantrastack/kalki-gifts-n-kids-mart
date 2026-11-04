@@ -825,6 +825,7 @@ const SALES_ORDERS = [
     status: 'fulfilled',
     payment: 'paid',
     date: 'Jul 16',
+    createdAt: '2026-07-16T10:30:00.000Z',
   },
   {
     id: 'SO-5820',
@@ -834,6 +835,7 @@ const SALES_ORDERS = [
     status: 'packing',
     payment: 'partial',
     date: 'Jul 15',
+    createdAt: '2026-07-15T09:30:00.000Z',
   },
   {
     id: 'SO-5819',
@@ -843,6 +845,7 @@ const SALES_ORDERS = [
     status: 'fulfilled',
     payment: 'paid',
     date: 'Jul 15',
+    createdAt: '2026-07-15T08:30:00.000Z',
   },
   {
     id: 'SO-5818',
@@ -852,6 +855,7 @@ const SALES_ORDERS = [
     status: 'shipped',
     payment: 'paid',
     date: 'Jul 12',
+    createdAt: '2026-07-12T07:30:00.000Z',
   },
   {
     id: 'SO-5817',
@@ -861,6 +865,7 @@ const SALES_ORDERS = [
     status: 'fulfilled',
     payment: 'paid',
     date: 'Jul 13',
+    createdAt: '2026-07-13T06:30:00.000Z',
   },
   {
     id: 'SO-5816',
@@ -870,6 +875,7 @@ const SALES_ORDERS = [
     status: 'pending',
     payment: 'unpaid',
     date: 'Jul 10',
+    createdAt: '2026-07-10T05:30:00.000Z',
   },
   {
     id: 'SO-5815',
@@ -879,6 +885,7 @@ const SALES_ORDERS = [
     status: 'fulfilled',
     payment: 'paid',
     date: 'Jul 08',
+    createdAt: '2026-07-08T04:30:00.000Z',
   },
 ];
 
