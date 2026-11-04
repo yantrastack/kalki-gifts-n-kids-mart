@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { reelCategories, reelPool, relatedReels } from './feed';
+import { reelCategories, reelPool, reelsInCategory, relatedReels } from './feed';
 
 // YAN-110: the Discover feed showed products with no media as placeholder blocks, the
 // chips were a hardcoded English list missing real categories, and "More like this"
@@ -27,6 +27,25 @@ describe('reelPool', () => {
 
   it('is empty when nothing has media', () => {
     expect(reelPool([p('x', 'Toys')], count)).toEqual([]);
+  });
+});
+
+describe('reelsInCategory', () => {
+  const pool = [p('a', 'Toys'), p('b', 'Candles'), p('c', 'Toys')];
+
+  it('keeps only the reels of the chosen category, in feed order', () => {
+    expect(reelsInCategory(pool, 'Toys').map((x) => x.id)).toEqual(['a', 'c']);
+  });
+
+  it('returns every reel for All (no category, empty, or "all")', () => {
+    expect(reelsInCategory(pool, null)).toHaveLength(3);
+    expect(reelsInCategory(pool, undefined)).toHaveLength(3);
+    expect(reelsInCategory(pool, '')).toHaveLength(3);
+    expect(reelsInCategory(pool, 'all')).toHaveLength(3);
+  });
+
+  it('is empty for a category with no reels', () => {
+    expect(reelsInCategory(pool, 'Plants')).toEqual([]);
   });
 });
 
@@ -72,7 +91,11 @@ describe('feed route', () => {
 
   it('pages and filters the reel pool, not every sellable product', () => {
     expect(src).toMatch(/reelPool\(sellable/);
-    expect(src).toMatch(/pool\.filter\(\(p\) => p\.category === category\)/);
+    expect(src).toMatch(/reelsInCategory\(pool, category\)/);
+  });
+
+  it('reports the size of the whole category as total, not just this page', () => {
+    expect(src).toMatch(/total: filtered\.length/);
   });
 
   it('returns the categories for the chips', () => {

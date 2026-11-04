@@ -31,6 +31,8 @@ export const te: Dict = {
     giftBannerSub: 'పుట్టినరోజు, వివాహం, వాలెంటైన్స్ & మరిన్ని',
     noResults: 'ఉత్పత్తులు కనబడలేదు',
     noResultsSub: 'వేరే శోధన లేదా వర్గాన్ని ప్రయత్నించండి.',
+    found_one: '{count} కనుగొనబడింది',
+    found_other: '{count} కనుగొనబడ్డాయి',
   },
 
   card: {
@@ -141,6 +143,8 @@ export const te: Dict = {
     end: 'మీరు అన్నీ చూశారు',
     empty: 'ఇక్కడ ఇంకా రీల్స్ లేవు',
     showAll: 'అన్నీ చూపించు',
+    found_one: '{count} కనుగొనబడింది',
+    found_other: '{count} కనుగొనబడ్డాయి',
   },
 
   gift: {
