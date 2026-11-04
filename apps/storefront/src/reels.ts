@@ -111,6 +111,16 @@ export function scrimSteps(steps: number, max: number): number[] {
 }
 
 /**
+ * The reel's edge scrims (YAN-118): light, short gradients that fade to clear, so the photo
+ * or video shows edge to edge with no dark band. Overlay text gets its legibility from text
+ * shadows and pills instead (`textOnMedia` in ReelsScreen), not from darkening the media.
+ */
+export const REEL_SCRIMS = {
+  top: { height: 100, max: 0.25 },
+  bottom: { height: 220, max: 0.35 },
+} as const;
+
+/**
  * CSS `linear-gradient` for a scrim: black at `max` opacity on the `edge` side, fading
  * smoothly to clear. One continuous gradient (web `backgroundImage`, native
  * `experimental_backgroundImage`), not stacked flat bands, so no band edges show.

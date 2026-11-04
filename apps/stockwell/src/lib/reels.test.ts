@@ -8,6 +8,7 @@ import {
   productIdFromSearch,
   productLink,
   reelDensity,
+  REEL_SCRIMS,
   reelStepForKey,
   scrimGradient,
   scrimSteps,
@@ -173,6 +174,97 @@ describe('scrimGradient', () => {
     expect(top).toMatch(/^linear-gradient\(to bottom, rgba\(0,0,0,0\.6\) 0%, /);
     expect(top).toMatch(/rgba\(0,0,0,0\) 100%\)$/);
     expect(scrimGradient('bottom', 0.6)).toMatch(/^linear-gradient\(to top, /);
+  });
+});
+
+describe('YAN-118: full-bleed reel media, no dark bands', () => {
+  const src = read('src/screens/ReelsScreen.tsx');
+
+  it('keeps the edge scrims light and short (top ~100px <= 25%, bottom ~220px <= 35%)', () => {
+    expect(REEL_SCRIMS.top.height).toBeLessThanOrEqual(100);
+    expect(REEL_SCRIMS.top.max).toBeLessThanOrEqual(0.25);
+    expect(REEL_SCRIMS.bottom.height).toBeLessThanOrEqual(220);
+    expect(REEL_SCRIMS.bottom.max).toBeLessThanOrEqual(0.35);
+  });
+
+  it('fades each scrim fully to clear (no hard edge)', () => {
+    for (const edge of ['top', 'bottom'] as const) {
+      const g = scrimGradient(edge, REEL_SCRIMS[edge].max);
+      expect(g).toMatch(/rgba\(0,0,0,0\) 100%\)$/);
+      const alphas = [...g.matchAll(/rgba\(0,0,0,([\d.]+)\)/g)].map((m) => Number(m[1]));
+      for (let i = 1; i < alphas.length; i++) expect(alphas[i]).toBeLessThanOrEqual(alphas[i - 1]);
+      expect(Math.max(...alphas)).toBeLessThanOrEqual(REEL_SCRIMS[edge].max);
+    }
+  });
+
+  it('renders the scrims from REEL_SCRIMS, with no flat or hard-coded dark block', () => {
+    const reel = src.slice(src.indexOf('function Reel('), src.indexOf('function Scrim('));
+    expect(reel).toMatch(/<Scrim edge="top" \{\.\.\.REEL_SCRIMS\.top\} \/>/);
+    expect(reel).toMatch(/<Scrim edge="bottom" \{\.\.\.REEL_SCRIMS\.bottom\} \/>/);
+    expect(reel).not.toMatch(/<Scrim[^>]*max=\{/);
+    expect(src).not.toMatch(/bottomScrim/);
+  });
+
+  it('fills the reel with every kind of media (cover, full width and height)', () => {
+    const reel = src.slice(src.indexOf('function Reel('), src.indexOf('function Scrim('));
+    // Photos and the placeholder are sized to the whole reel; ProductImage defaults to cover.
+    expect(reel).toMatch(/style=\{\{ width, height, backgroundColor: REEL_FALLBACK \}\}/);
+    expect(reel).toMatch(
+      /<ImageFallback[\s\S]*?style=\{\{ width, height, backgroundColor: REEL_FALLBACK \}\}/,
+    );
+    expect(read('src/components/ProductImage.tsx')).toMatch(/fit = 'cover'/);
+    // Videos: web <video> and native VideoView both cover.
+    expect(src).toMatch(/objectFit: 'cover'/);
+    expect(src).toMatch(/contentFit="cover"/);
+  });
+
+  it('gives white text drawn on the media a dark text shadow (legible on white photos)', () => {
+    const styles = src.slice(src.indexOf('const styles = StyleSheet.create('));
+    for (const key of [
+      'topTitle',
+      'name',
+      'meta',
+      'price',
+      'railLabel',
+      'relatedTitle',
+      'relPrice',
+    ]) {
+      // One style entry: from "  key: {" up to the next top-level "  other: " entry.
+      const start = styles.indexOf(`\n  ${key}: {`);
+      expect(start, key).toBeGreaterThan(-1);
+      const rest = styles.slice(start + 1);
+      const next = rest.slice(1).search(/\n {2}\w+: /);
+      const entry = next === -1 ? rest : rest.slice(0, next + 1);
+      expect(entry, key).toMatch(/\.\.\.textOnMedia/);
+    }
+    // A dense halo on web (stacked shadows), an opaque single shadow on native.
+    const halo = src.slice(src.indexOf('const textOnMedia'), src.indexOf('const styles ='));
+    expect(halo).toMatch(/textShadow:\s*'0 0 2px #000, 0 0 3px #000/);
+    expect(halo).toMatch(/textShadowColor: 'rgba\(0,0,0,0\.9\)'/);
+  });
+
+  // WCAG contrast of white over a black pill of opacity `a`, on a pure-white photo.
+  const whiteOverPillOnWhite = (a: number) => {
+    const c = (255 * (1 - a)) / 255;
+    const lin = c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    return 1.05 / (lin + 0.05);
+  };
+  const alphaOf = (name: string) => {
+    const m = src.match(new RegExp(`const ${name} = 'rgba\\(0,0,0,([\\d.]+)\\)'`));
+    expect(m, name).not.toBeNull();
+    return Number(m?.[1]);
+  };
+
+  it('keeps the category chips on their own pill, AA for text even on a white photo', () => {
+    expect(src).toMatch(/styles\.chip, \{ backgroundColor: on \? theme\.accent : CHIP_BG \}/);
+    expect(whiteOverPillOnWhite(alphaOf('CHIP_BG'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('gives the top buttons and rail icons a pill that meets AA for graphics (3:1) on white', () => {
+    expect(whiteOverPillOnWhite(alphaOf('ICON_BG'))).toBeGreaterThanOrEqual(3);
+    const styles = src.slice(src.indexOf('const styles = StyleSheet.create('));
+    expect(styles).toMatch(/topBtn: \{[^}]*backgroundColor: ICON_BG/);
+    expect(styles).toMatch(/railIcon: \{[^}]*backgroundColor: ICON_BG/);
   });
 });
 
