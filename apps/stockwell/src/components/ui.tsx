@@ -423,7 +423,7 @@ export function Slideover({ open, onClose, children, wide }: any) {
   );
 }
 
-export function Dropdown({ trigger, children, align = 'right' }: any) {
+export function Dropdown({ trigger, children, align = 'right', minWidth = 180 }: any) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; up: boolean } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -490,7 +490,7 @@ export function Dropdown({ trigger, children, align = 'right' }: any) {
                 top: pos?.top ?? 0,
                 left: pos?.left ?? 0,
                 visibility: pos ? 'visible' : 'hidden',
-                minWidth: 180,
+                minWidth,
                 background: 'var(--bg-elev)',
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--r-md)',

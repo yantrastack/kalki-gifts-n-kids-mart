@@ -3,7 +3,7 @@ import { db, schema } from '@/db/client';
 import { eq } from 'drizzle-orm';
 import { parseMediaRequest, problemResponse, storePending } from '@/lib/mediaApi';
 import { removeMedia } from '@/lib/storage';
-import { isAdmin } from '@/lib/guard';
+import { isSignedIn } from '@/lib/guard';
 
 type Params = { params: Promise<{ id: string; mediaId: string }> };
 
@@ -14,7 +14,8 @@ type Params = { params: Promise<{ id: string; mediaId: string }> };
  * file is removed best-effort after the row is saved. Admin-only. YAN-108.
  */
 export async function PUT(req: NextRequest, { params }: Params) {
-  if (!(await isAdmin(req))) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  if (!(await isSignedIn(req)))
+    return NextResponse.json({ error: 'Sign in required' }, { status: 403 });
 
   const { id, mediaId } = await params;
   const row = await db

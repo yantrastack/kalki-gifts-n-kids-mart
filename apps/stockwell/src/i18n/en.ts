@@ -269,9 +269,9 @@ export const en = {
     photosTitle: 'Photos',
     videosTitle: 'Videos',
     photosHelp:
-      'Add photos one at a time or several together — they add up. JPG, PNG or WebP, at least {min} px on the short side, up to {mb} MB each. The first photo is the cover. Drag or use the arrow buttons to reorder.',
+      'Add photos one at a time or several together — they add up. JPG, PNG or WebP, at least {min} px on the short side, up to {mb} MB each, at most {max} photos per product. The first photo is the cover. Drag or use the arrow buttons to reorder.',
     videosHelp:
-      'MP4, MOV or WebM, up to {mb} MB each. MP4 (H.264 + AAC) plays best on iPhones. Open a video to play it with sound.',
+      'MP4, MOV or WebM, up to {mb} MB each, at most {max} videos per product. MP4 (H.264 + AAC) plays best on iPhones. Open a video to play it with sound.',
     addPhotos: 'Add photos',
     addVideos: 'Add videos',
     noPhotos: 'No photos yet.',
@@ -317,6 +317,8 @@ export const en = {
     problem: {
       unsupported: '{name}: use JPG, PNG or WebP photos, or MP4, MOV or WebM videos.',
       tooLarge: '{name} is larger than {limitMb} MB.',
+      tooManyPhotos: '{name}: a product can have at most {max} photos.',
+      tooManyVideos: '{name}: a product can have at most {max} videos.',
       notAnImage: '{name} isn’t a valid JPG, PNG or WebP photo.',
       tooSmall:
         '{name} is too small ({width}×{height} px). Photos need at least {min} px on the short side — use the original camera photo, not a screenshot.',

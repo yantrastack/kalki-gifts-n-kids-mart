@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import { checkTypeAndSize } from '@/lib/mediaRules';
 import { problemResponse } from '@/lib/mediaApi';
 import { cloudinaryEnabled, directUploadTicket, localDiskUsable } from '@/lib/storage';
-import { isAdmin } from '@/lib/guard';
+import { isSignedIn } from '@/lib/guard';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -20,7 +20,8 @@ type Params = { params: Promise<{ id: string }> };
  * Admin-only, and only for an existing product, so uploads are always tied to a product.
  */
 export async function POST(req: NextRequest, { params }: Params) {
-  if (!(await isAdmin(req))) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  if (!(await isSignedIn(req)))
+    return NextResponse.json({ error: 'Sign in required' }, { status: 403 });
   const { id } = await params;
   const product = await db
     .select({ id: schema.products.id })

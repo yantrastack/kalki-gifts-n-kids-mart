@@ -125,10 +125,11 @@ describe('product video upload (YAN-108)', () => {
       expect(await bad({ name: 'a.mp4', type: 'video/mp4', size: 0 })).toBe('unsupported');
     });
 
-    it('404s for an unknown product, 403s for staff', async () => {
+    it('404s for an unknown product; staff may sign, signed-out users get 403', async () => {
       const f = { name: 'a.mp4', type: 'video/mp4', size: 10 };
       expect((await signFor('nope', f)).status).toBe(404);
-      expect((await signFor('pv', f, staffCookie)).status).toBe(403);
+      expect((await signFor('pv', f, staffCookie)).status).toBe(200);
+      expect((await signFor('pv', f, '')).status).toBe(403);
     });
 
     it('on Vercel without Cloudinary: refuses with a storage problem (no ephemeral disk)', async () => {

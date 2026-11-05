@@ -6,6 +6,10 @@ import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
 import { jget, jsend } from '@/lib/api';
 import AddProductModal from '@/components/AddProductModal';
+import AddSupplierModal from '@/components/AddSupplierModal';
+
+const ADD_SUPPLIER = '__add_supplier__';
+import { uploadMediaFile } from '@/lib/uploadMedia';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -19,11 +23,24 @@ type Line = {
   qty: string;
   free: string;
   cost: string;
-  price: string;
+  price: string; // derived from MRP and discount (%) on save
   mrp: string;
+  discount: string; // % off MRP
   expiry: string;
   scheme: string;
   batchNo: string;
+};
+
+// Discount (%) off MRP, derived from a stored selling price.
+const discountPct = (price?: number | null, mrp?: number | null) =>
+  price && mrp && mrp > price ? String(Math.round((1 - price / mrp) * 10000) / 100) : '';
+
+// Selling price = MRP less the discount; falls back to the stored price.
+const sellingPrice = (l: Line) => {
+  const mrp = Number(l.mrp) || 0;
+  const d = Number(l.discount) || 0;
+  if (mrp > 0 && d > 0) return Math.round(mrp * (1 - d / 100) * 100) / 100;
+  return Number(l.price) || 0;
 };
 
 // Shared form for the purchase-entry page: creates a bill (`poId` absent,
@@ -40,6 +57,7 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
   const [loaded, setLoaded] = useState(!editing);
 
   const [supplier, setSupplier] = useState('');
+  const [showAddSupplier, setShowAddSupplier] = useState(false);
   const [warehouse, setWarehouse] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(today());
@@ -83,6 +101,7 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
             cost: l.cost ? String(l.cost) : '',
             price: l.price ? String(l.price) : '',
             mrp: l.mrp ? String(l.mrp) : '',
+            discount: discountPct(l.price, l.mrp),
             expiry: l.expiry || '',
             scheme: l.scheme || '',
             batchNo: l.batchNo || '',
@@ -96,8 +115,7 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
   // Close the search results when clicking outside.
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node))
-        setShowResults(false);
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowResults(false);
     };
     window.addEventListener('mousedown', onDown);
     return () => window.removeEventListener('mousedown', onDown);
@@ -137,6 +155,7 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
           cost: p.cost ? String(p.cost) : '',
           price: p.price ? String(p.price) : '',
           mrp: p.mrp ? String(p.mrp) : '',
+          discount: discountPct(p.price, p.mrp),
           expiry: p.expiry || '',
           scheme: '',
           batchNo: '',
@@ -161,6 +180,7 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
         cost: '',
         price: '',
         mrp: '',
+        discount: '',
         expiry: '',
         scheme: '',
         batchNo: '',
@@ -172,16 +192,31 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
 
   // Full-details product creation (shared Add product form): publishes the
   // product immediately, then drops it into the bill as a line.
-  const createProduct = async (form: any) => {
+  const createProduct = async (form: any, files: File[] = []) => {
     try {
       const p = await jsend('/api/products', 'POST', {
         ...form,
         supplier: form.supplier || supplier,
         warehouse: form.warehouse || warehouse,
       });
+      // Photos/videos chosen under "Customize" upload once the product exists.
+      let failedUploads = 0;
+      for (const f of files) {
+        try {
+          await uploadMediaFile(p.id, f);
+        } catch {
+          failedUploads++;
+        }
+      }
       setProducts((ps) => [p, ...ps]);
       setShowAddProduct(false);
       toast({ message: `Published "${p.name}"`, icon: 'check' });
+      if (failedUploads)
+        toast({
+          message: `${failedUploads} file(s) failed to upload — add them from the product's Media tab`,
+          icon: 'alert',
+          type: 'danger',
+        });
       addExisting(p);
     } catch (e: any) {
       toast({ message: e.message, icon: 'alert', type: 'danger' });
@@ -219,7 +254,7 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
         qty: Number(l.qty),
         free: Number(l.free) || 0,
         cost: Number(l.cost) || 0,
-        price: Number(l.price) || 0,
+        price: sellingPrice(l),
         mrp: Number(l.mrp) || 0,
         expiry: l.expiry || undefined,
         scheme: l.scheme || undefined,
@@ -293,8 +328,9 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
                 <UI.Select
                   aria-label="Supplier"
                   value={supplier}
-                  onChange={setSupplier}
+                  onChange={(v) => (v === ADD_SUPPLIER ? setShowAddSupplier(true) : setSupplier(v))}
                   options={[
+                    { value: ADD_SUPPLIER, label: '+ Add supplier' },
                     { value: '', label: 'Select supplier…' },
                     ...suppliers.map((s) => ({ value: s.name, label: s.name })),
                   ]}
@@ -327,15 +363,6 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
                   onChange={(e) => setEnteredDate(e.target.value)}
                 />
               </label>
-              <div className="field">
-                <span>Deliver to</span>
-                <UI.Select
-                  aria-label="Deliver to"
-                  value={warehouse}
-                  onChange={setWarehouse}
-                  options={warehouses.map((w) => ({ value: w.id, label: w.name }))}
-                />
-              </div>
             </div>
           </div>
 
@@ -351,7 +378,10 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
               flexWrap: 'wrap',
             }}
           >
-            <div className="input-group" style={{ height: 42, flex: 1, minWidth: 240, maxWidth: 560 }}>
+            <div
+              className="input-group"
+              style={{ height: 42, flex: 1, minWidth: 240, maxWidth: 560 }}
+            >
               <Icon name="search" size={16} style={{ color: 'var(--fg-tertiary)' }} />
               <input
                 placeholder="Search products by name, SKU or barcode to add…"
@@ -552,17 +582,6 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
                     />
                   </label>
                   <label className="field">
-                    <span>Selling price</span>
-                    <input
-                      className="input"
-                      type="number"
-                      min={0}
-                      value={l.price}
-                      onChange={(e) => setLine(l.key, 'price', e.target.value)}
-                      placeholder="0.00"
-                    />
-                  </label>
-                  <label className="field">
                     <span>MRP</span>
                     <input
                       className="input"
@@ -571,6 +590,18 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
                       value={l.mrp}
                       onChange={(e) => setLine(l.key, 'mrp', e.target.value)}
                       placeholder="0.00"
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Discount (%)</span>
+                    <input
+                      className="input"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={l.discount}
+                      onChange={(e) => setLine(l.key, 'discount', e.target.value)}
+                      placeholder="0"
                     />
                   </label>
                   <label className="field">
@@ -643,11 +674,22 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
             </div>
           </div>
 
+          <AddSupplierModal
+            open={showAddSupplier}
+            onClose={() => setShowAddSupplier(false)}
+            existing={suppliers}
+            onCreated={(s) => {
+              setSuppliers((ss) => [s, ...ss]);
+              setSupplier(s.name);
+            }}
+          />
           <AddProductModal
             open={showAddProduct}
             onClose={() => setShowAddProduct(false)}
             onSubmit={createProduct}
             defaults={{ supplier, warehouse }}
+            hideSupplier
+            customizable
           />
         </>
       )}

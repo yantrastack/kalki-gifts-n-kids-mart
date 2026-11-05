@@ -4,7 +4,6 @@ import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
 import { jget, jsend } from '@/lib/api';
 import { useI18n } from '@/i18n';
-import { useUser } from '@/components/UserContext';
 import {
   parseSupplier,
   SUPPLIER_LIMITS,
@@ -50,7 +49,6 @@ export default function SuppliersPage() {
   const { fmt, Avatar, Modal, Dropdown, MenuItem, MenuSep, useToast } = UI;
   const { t } = useI18n();
   const toast = useToast();
-  const { isAdmin } = useUser();
   const [suppliers, setSuppliers] = useState<any[]>([]);
   // Add/edit share one form: `editing` is the supplier being edited, null when adding.
   const [formOpen, setFormOpen] = useState(false);
@@ -193,6 +191,7 @@ export default function SuppliersPage() {
                 <div className="muted tiny">{s.contact}</div>
               </div>
               <Dropdown
+                minWidth={120}
                 trigger={
                   <button
                     type="button"
@@ -205,15 +204,13 @@ export default function SuppliersPage() {
                 }
               >
                 <MenuItem icon="edit" label={t('suppliers.edit')} onClick={() => openForm(s)} />
-                {isAdmin && <MenuSep />}
-                {isAdmin && (
-                  <MenuItem
-                    icon="trash"
-                    label={t('suppliers.remove')}
-                    danger
-                    onClick={() => setRemoving(s)}
-                  />
-                )}
+                <MenuSep />
+                <MenuItem
+                  icon="trash"
+                  label={t('suppliers.remove')}
+                  danger
+                  onClick={() => setRemoving(s)}
+                />
               </Dropdown>
             </div>
             <dl className="dp-kv" style={{ fontSize: 'var(--t-sm)' }}>

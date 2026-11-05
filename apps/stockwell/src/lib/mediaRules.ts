@@ -16,6 +16,11 @@ export const VIDEO_ACCEPT = VIDEO_TYPES.join(',');
 
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB
 export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
+/** Most photos / videos one product can have. */
+export const MAX_PRODUCT_PHOTOS = 10;
+export const MAX_PRODUCT_VIDEOS = 3;
+export const maxFor = (kind: 'image' | 'video') =>
+  kind === 'video' ? MAX_PRODUCT_VIDEOS : MAX_PRODUCT_PHOTOS;
 
 const EXT_TYPES: Record<string, string> = {
   '.jpg': 'image/jpeg',
@@ -107,6 +112,8 @@ export type MediaProblem =
   | { code: 'notAnImage'; name: string }
   | { code: 'tooSmall'; name: string; width: number; height: number; min: number }
   | { code: 'typeMismatch'; name: string; expected: 'image' | 'video' }
+  | { code: 'tooManyVideos'; name: string; max: number }
+  | { code: 'tooManyPhotos'; name: string; max: number }
   | { code: 'storage'; name: string }
   | { code: 'network'; name: string };
 
@@ -269,4 +276,22 @@ export function moveItem<T>(list: T[], from: number, to: number): T[] {
   const [item] = next.splice(from, 1);
   next.splice(target, 0, item);
   return next;
+}
+
+/**
+ * Keeps at most maxFor(kind) photos or videos per product: `have` already exist, so only
+ * the first few of `files` fit. The rest come back as `tooManyPhotos` / `tooManyVideos` problems.
+ */
+export function limitMedia<T extends { name: string }>(
+  kind: 'image' | 'video',
+  have: number,
+  files: T[],
+): { accepted: T[]; problems: MediaProblem[] } {
+  const max = maxFor(kind);
+  const room = Math.max(0, max - have);
+  const code = kind === 'video' ? ('tooManyVideos' as const) : ('tooManyPhotos' as const);
+  return {
+    accepted: files.slice(0, room),
+    problems: files.slice(room).map((f) => ({ code, name: f.name, max })),
+  };
 }

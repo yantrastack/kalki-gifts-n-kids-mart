@@ -141,7 +141,7 @@ describe('/api/products/[id]/media', () => {
     });
   });
 
-  describe('permissions (YAN-108): mutations are admin-only', () => {
+  describe('permissions: mutations need a signed-in user', () => {
     it('POST without a session is refused and stores nothing', async () => {
       const fd = new FormData();
       fd.append('files', new File([fakePng(1000, 1000)], 'ok.png', { type: 'image/png' }));

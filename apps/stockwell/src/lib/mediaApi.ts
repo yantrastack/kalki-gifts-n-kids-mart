@@ -33,6 +33,10 @@ export function problemText(p: MediaProblem): string {
       return `${p.name} is ${p.width}×${p.height} px; photos need at least ${p.min} px on the short side`;
     case 'typeMismatch':
       return `${p.name}: choose another ${p.expected} to replace it`;
+    case 'tooManyPhotos':
+      return `${p.name}: a product can have at most ${p.max} photos`;
+    case 'tooManyVideos':
+      return `${p.name}: a product can have at most ${p.max} videos`;
     case 'storage':
       return `${p.name}: the file could not be stored. Please try again.`;
     case 'network':

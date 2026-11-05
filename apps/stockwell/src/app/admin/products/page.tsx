@@ -11,7 +11,7 @@ import { useUser } from '@/components/UserContext';
 import GiftFields, { type GiftValue } from '@/components/GiftFields';
 import { MIN_PRODUCT_PHOTOS, giftTagLabel } from '@stockwell/shared';
 import { missingForActivation } from '@/lib/catalog';
-import { declaredType, moveWithinKind } from '@/lib/mediaRules';
+import { declaredType, limitMedia, moveWithinKind } from '@/lib/mediaRules';
 import { filePhotoCount } from '@/components/MediaPicker';
 import {
   MediaSections,
@@ -1163,7 +1163,12 @@ function MediaTab({
     setBusy(true);
     try {
       // Same checks as the API, so a bad file is explained before anything uploads.
-      const { accepted, problems } = await screenFiles(list);
+      const screened = await screenFiles(list);
+      let { accepted } = screened;
+      const problems = [...screened.problems];
+      const lim = limitMedia(kind, items.filter((m) => m.type === kind).length, accepted);
+      accepted = lim.accepted;
+      problems.push(...lim.problems);
       setErrors((e) => ({ ...e, [kind]: problems.map((p) => problemMessage(t, p)) }));
       if (!accepted.length) return;
       const entries: UploadEntry[] = accepted.map((f) => ({
@@ -1260,12 +1265,12 @@ function MediaTab({
         errors={errors}
         uploads={uploads}
         disabled={busy}
-        canAdd={isAdmin}
-        canEdit={isAdmin}
+        canAdd
+        canEdit
         onAdd={upload}
         onMove={move}
-        onRemove={isAdmin ? (i) => setConfirming(i) : undefined}
-        onReplace={isAdmin ? replace : undefined}
+        onRemove={(i) => setConfirming(i)}
+        onReplace={replace}
         onRetry={(u) => {
           setBusy(true);
           runEntry(u).finally(() => setBusy(false));

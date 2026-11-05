@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { photoCount } from '@stockwell/shared';
 import { useI18n } from '@/i18n';
-import { declaredType, moveWithinKind } from '@/lib/mediaRules';
+import { declaredType, limitMedia, moveWithinKind } from '@/lib/mediaRules';
 import { MediaSections, problemMessage, screenFiles, type UploadEntry } from './ProductMediaGrid';
 import MediaPreview from './MediaPreview';
 
@@ -52,7 +52,12 @@ export default function MediaPicker({
   const add = async (kind: 'image' | 'video', list: File[]) => {
     setChecking(true);
     try {
-      const { accepted, problems } = await screenFiles(list);
+      const screened = await screenFiles(list);
+      let { accepted } = screened;
+      const problems = [...screened.problems];
+      const lim = limitMedia(kind, files.filter((f) => kindOf(f) === kind).length, accepted);
+      accepted = lim.accepted;
+      problems.push(...lim.problems);
       setErrors((e) => ({ ...e, [kind]: problems.map((p) => problemMessage(t, p)) }));
       if (accepted.length) onChange([...files, ...accepted]);
     } finally {

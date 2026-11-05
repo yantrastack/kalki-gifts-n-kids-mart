@@ -146,3 +146,17 @@ describe('photoCount', () => {
     expect(photoCount([{ type: 'image' }, { type: 'video' }, { type: 'image' }])).toBe(2);
   });
 });
+
+describe('limitMedia', () => {
+  const v = (n: string) => ({ name: n });
+  it('keeps at most the per-kind cap in total and reports the rest', async () => {
+    const { limitMedia } = await import('./mediaRules');
+    const r = limitMedia('video', 2, [v('a'), v('b')]);
+    expect(r.accepted.map((x) => x.name)).toEqual(['a']);
+    expect(r.problems).toEqual([{ code: 'tooManyVideos', name: 'b', max: 3 }]);
+    expect(limitMedia('video', 3, [v('c')]).accepted).toEqual([]);
+    expect(limitMedia('image', 10, [v('p')]).problems).toEqual([
+      { code: 'tooManyPhotos', name: 'p', max: 10 },
+    ]);
+  });
+});

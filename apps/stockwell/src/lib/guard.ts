@@ -8,3 +8,7 @@ export async function isAdmin(req: NextRequest): Promise<boolean> {
   const s = await getSession(req);
   return s?.role === 'admin';
 }
+// Any signed-in user (admin or staff).
+export async function isSignedIn(req: NextRequest): Promise<boolean> {
+  return (await getSession(req)) !== null;
+}

@@ -5,6 +5,7 @@ import { Icon } from './Icon';
 import { useI18n } from '@/i18n';
 import {
   MAX_PHOTO_BYTES,
+  maxFor,
   MAX_VIDEO_BYTES,
   PHOTO_ACCEPT,
   VIDEO_ACCEPT,
@@ -539,6 +540,11 @@ function MediaSection({
     if (m.type === kind) slots.push(i);
   });
   const at = (sectionIndex: number) => slots[sectionIndex];
+  // Photos/videos already at the cap (counting files still uploading): no more can be added.
+  const pending = uploads.filter(
+    (u) => u.kind === kind && u.status !== 'done' && u.status !== 'error',
+  ).length;
+  const atLimit = slots.length + pending >= maxFor(kind);
 
   return (
     <section aria-labelledby={`${id}-title`}>
@@ -568,7 +574,15 @@ function MediaSection({
               type="button"
               className="btn btn-primary btn-sm"
               style={{ marginLeft: 'auto' }}
-              disabled={disabled}
+              disabled={disabled || atLimit}
+              title={
+                atLimit
+                  ? t(isPhoto ? 'media.problem.tooManyPhotos' : 'media.problem.tooManyVideos', {
+                      name: '',
+                      max: maxFor(kind),
+                    }).replace(/^:\s*/, '')
+                  : undefined
+              }
               onClick={() => inputRef.current?.click()}
             >
               <Icon name="plus" size={12} /> {isPhoto ? t('media.addPhotos') : t('media.addVideos')}
@@ -578,8 +592,12 @@ function MediaSection({
       </div>
       <p className="muted tiny" style={{ margin: '6px 0 0' }}>
         {isPhoto
-          ? t('media.photosHelp', { min: MIN_PHOTO_SIDE, mb: MAX_PHOTO_BYTES >> 20 })
-          : t('media.videosHelp', { mb: MAX_VIDEO_BYTES >> 20 })}
+          ? t('media.photosHelp', {
+              min: MIN_PHOTO_SIDE,
+              mb: MAX_PHOTO_BYTES >> 20,
+              max: maxFor(kind),
+            })
+          : t('media.videosHelp', { mb: MAX_VIDEO_BYTES >> 20, max: maxFor(kind) })}
       </p>
       {sectionErrors.length > 0 && (
         <ul className="field-error" role="alert" style={{ marginTop: 8, paddingLeft: 16 }}>
