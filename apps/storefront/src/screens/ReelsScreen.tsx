@@ -1,4 +1,13 @@
-import { createElement, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  createElement,
+  memo,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   View,
   Text,
@@ -330,6 +339,33 @@ export default function ReelsScreen({
     else onOpenRelated(id);
   };
 
+  // Reels are memoized, so they get stable callbacks that always call the latest handlers
+  // (a new inline function per render would re-render every mounted reel on each scroll).
+  const act = useRef<any>({});
+  act.current = {
+    like: toggleLike,
+    save: toggleSave,
+    share,
+    add: addOne,
+    buy,
+    open,
+    related,
+    loadMore,
+  };
+  const handlers = useMemo(
+    () => ({
+      onLike: (p: FeedProduct) => act.current.like(p),
+      onSave: (p: FeedProduct) => act.current.save(p),
+      onShare: (p: FeedProduct) => act.current.share(p),
+      onBuy: (p: FeedProduct) => act.current.buy(p),
+      onAdd: (p: FeedProduct) => act.current.add(p),
+      onOpen: (p: FeedProduct) => act.current.open(p),
+      onRelated: (id: string) => act.current.related(id),
+      onRetryMore: () => act.current.loadMore(),
+    }),
+    [],
+  );
+
   // Speaker only for a video (with sound) on the reel in view; not for photos/placeholders.
   const activeId = items[active]?.id;
   const speaker =
@@ -464,8 +500,14 @@ export default function ReelsScreen({
           onEndReached={loadMore}
           onEndReachedThreshold={0.6}
           decelerationRate="fast"
+          // Only the reel in view and its neighbours are mounted; mounting more (each has
+          // a media carousel and video) is what made fast scrolling stutter.
+          initialNumToRender={2}
           windowSize={3}
-          maxToRenderPerBatch={2}
+          maxToRenderPerBatch={1}
+          updateCellsBatchingPeriod={50}
+          removeClippedSubviews={Platform.OS !== 'web'}
+          disableIntervalMomentum
           accessibilityLabel={t('reels.feed')}
           renderItem={({ item, index }) => (
             <Reel
@@ -480,34 +522,17 @@ export default function ReelsScreen({
               currency={currency}
               t={t}
               categoryLabel={categoryLabel}
-              footer={
-                index !== last ? null : loadMoreError ? (
-                  <Btn
-                    theme={theme}
-                    radius={999}
-                    onPress={loadMore}
-                    style={styles.feedNote}
-                    label={`${t('reels.loadMoreError')} ${t('common.retry')}`}
-                  >
-                    <Feather name="refresh-cw" size={13} color="#fff" />
-                    <Text style={styles.feedNoteText}>
-                      {t('reels.loadMoreError')} · {t('common.retry')}
-                    </Text>
-                  </Btn>
-                ) : !cursor && items.length > 1 ? (
-                  <View style={styles.feedNote}>
-                    <Feather name="check-circle" size={13} color="#fff" />
-                    <Text style={styles.feedNoteText}>{t('reels.end')}</Text>
-                  </View>
-                ) : null
+              near={!hidden && Math.abs(index - active) === 1}
+              footerKind={
+                index !== last
+                  ? 'none'
+                  : loadMoreError
+                    ? 'error'
+                    : !cursor && items.length > 1
+                      ? 'end'
+                      : 'none'
               }
-              onLike={() => toggleLike(item)}
-              onSave={() => toggleSave(item)}
-              onShare={() => share(item)}
-              onBuy={() => buy(item)}
-              onAdd={() => addOne(item)}
-              onOpen={() => open(item)}
-              onRelated={related}
+              {...handlers}
               onSound={reportSound}
               onForcedMute={forceMuted}
             />
@@ -559,7 +584,7 @@ function ReelSkeleton({ theme }: { theme: Theme }) {
 }
 
 /* --------------------------------------------------------------------- one reel */
-function Reel({
+function ReelImpl({
   product,
   width,
   height,
@@ -571,7 +596,9 @@ function Reel({
   currency,
   t,
   categoryLabel,
-  footer,
+  near,
+  footerKind,
+  onRetryMore,
   onLike,
   onSave,
   onShare,
@@ -594,14 +621,17 @@ function Reel({
   currency: string;
   t: (k: string, p?: any) => string;
   categoryLabel: (name: string) => string;
+  /** The next or previous reel: its video is preloaded so it starts at once. */
+  near: boolean;
   /** Shown above the info on the last reel: load-more retry or end of feed. */
-  footer: ReactNode;
-  onLike: () => void;
-  onSave: () => void;
-  onShare: () => void;
-  onBuy: () => void;
-  onAdd: () => void;
-  onOpen: () => void;
+  footerKind: 'none' | 'error' | 'end';
+  onRetryMore: () => void;
+  onLike: (p: FeedProduct) => void;
+  onSave: (p: FeedProduct) => void;
+  onShare: (p: FeedProduct) => void;
+  onBuy: (p: FeedProduct) => void;
+  onAdd: (p: FeedProduct) => void;
+  onOpen: (p: FeedProduct) => void;
   onRelated: (id: string) => void;
   /** Reports the on-screen slide's sound while this reel is the active one. */
   onSound: (productId: string, sound: ReelSound) => void;
@@ -615,7 +645,14 @@ function Reel({
   // like button and could not be clicked.
   const [railTop, setRailTop] = useState<number | null>(null);
   const mediaRef = useRef<FlatList<FeedProduct['media'][number]>>(null);
-  const media = product.media.length ? product.media : [];
+  // A product with a video opens on it: videos first, each group keeping its saved order.
+  const media = useMemo(
+    () => [
+      ...product.media.filter((m) => m.type === 'video'),
+      ...product.media.filter((m) => m.type !== 'video'),
+    ],
+    [product.media],
+  );
   const count = media.length;
   const low = product.inStock <= 10;
   const density = reelDensity(height);
@@ -660,6 +697,10 @@ function Reel({
           // onScroll (not onMomentumScrollEnd): mobile web never fires momentum events, so
           // the counter stuck on 1 and a later video slide never played.
           scrollEventThrottle={32}
+          // Mount only the slide in view and its neighbours (each video slide is a player).
+          initialNumToRender={1}
+          windowSize={3}
+          maxToRenderPerBatch={1}
           onScroll={(e) => {
             const i = pageAt(e.nativeEvent.contentOffset.x, width, count);
             if (i !== mediaIndex) setMediaIndex(i);
@@ -672,6 +713,7 @@ function Reel({
                 width={width}
                 height={height}
                 active={active && mediaIndex === index}
+                near={near && index === 0}
                 muted={muted}
                 theme={theme}
                 playLabel={t('reels.playVideo')}
@@ -727,12 +769,30 @@ function Reel({
       {/* Info panel + action rail, side by side under the top area. */}
       <View style={styles.overlay} pointerEvents="box-none">
         <View style={styles.info} pointerEvents="box-none">
-          {footer}
+          {footerKind === 'error' ? (
+            <Btn
+              theme={theme}
+              radius={999}
+              onPress={onRetryMore}
+              style={styles.feedNote}
+              label={`${t('reels.loadMoreError')} ${t('common.retry')}`}
+            >
+              <Feather name="refresh-cw" size={13} color="#fff" />
+              <Text style={styles.feedNoteText}>
+                {t('reels.loadMoreError')} · {t('common.retry')}
+              </Text>
+            </Btn>
+          ) : footerKind === 'end' ? (
+            <View style={styles.feedNote}>
+              <Feather name="check-circle" size={13} color="#fff" />
+              <Text style={styles.feedNoteText}>{t('reels.end')}</Text>
+            </View>
+          ) : null}
           {!tight && <ProductBadge tag={product.tag} theme={theme} style={styles.tagPill} />}
           <Btn
             theme={theme}
             radius={6}
-            onPress={onOpen}
+            onPress={() => onOpen(product)}
             label={t('reels.detailsFor', { name: product.name })}
             style={styles.nameLink}
           >
@@ -766,7 +826,7 @@ function Reel({
           <Btn
             theme={theme}
             radius={14}
-            onPress={onAdd}
+            onPress={() => onAdd(product)}
             label={t('card.addToCart', { name: product.name })}
             style={({ pressed }) => [
               styles.cta,
@@ -835,7 +895,7 @@ function Reel({
             label={!rail.labels ? null : compact(product.likes)}
             a11y={`${t('reels.like', { name: product.name })}, ${product.likes}`}
             pressed={liked}
-            onPress={onLike}
+            onPress={() => onLike(product)}
           />
           <RailBtn
             theme={theme}
@@ -843,7 +903,7 @@ function Reel({
             icon={<Feather name="send" size={25} color="#fff" />}
             label={!rail.labels ? null : compact(product.shares)}
             a11y={`${t('reels.share', { name: product.name })}, ${product.shares}`}
-            onPress={onShare}
+            onPress={() => onShare(product)}
           />
           <RailBtn
             theme={theme}
@@ -855,7 +915,7 @@ function Reel({
             label={!rail.labels ? null : t(saved ? 'wishlist.savedShort' : 'wishlist.saveShort')}
             a11y={t(saved ? 'wishlist.remove' : 'wishlist.save', { name: product.name })}
             pressed={saved}
-            onPress={onSave}
+            onPress={() => onSave(product)}
           />
           <RailBtn
             theme={theme}
@@ -863,7 +923,7 @@ function Reel({
             icon={<Feather name="zap" size={25} color="#fff" />}
             label={!rail.labels ? null : t('reels.buy')}
             a11y={t('reels.buyNow', { name: product.name })}
-            onPress={onBuy}
+            onPress={() => onBuy(product)}
           />
           <RailBtn
             theme={theme}
@@ -871,13 +931,16 @@ function Reel({
             icon={<Feather name="info" size={25} color="#fff" />}
             label={!rail.labels ? null : t('reels.details')}
             a11y={t('reels.detailsFor', { name: product.name })}
-            onPress={onOpen}
+            onPress={() => onOpen(product)}
           />
         </View>
       </View>
     </View>
   );
 }
+
+/** Re-renders only when its own props change, not on every scroll of the feed. */
+const Reel = memo(ReelImpl);
 
 /**
  * A smooth gradient, darkest at the edge, fading to clear. One CSS gradient (web) /
@@ -904,6 +967,8 @@ type ReelVideoProps = {
   height: number;
   /** On screen (current reel and current slide): plays; otherwise paused. */
   active: boolean;
+  /** Next/previous reel's first slide: load the video ahead of time (web). */
+  near?: boolean;
   muted: boolean;
   theme: Theme;
   playLabel: string;
@@ -928,6 +993,7 @@ function WebReelVideo({
   width,
   height,
   active,
+  near,
   muted,
   theme,
   playLabel,
@@ -1006,7 +1072,7 @@ function WebReelVideo({
     muted: true,
     loop: true,
     playsInline: true,
-    preload: 'metadata',
+    preload: active || near ? 'auto' : 'metadata',
     style: { width, height, objectFit: 'cover', display: 'block', backgroundColor: '#000' },
   });
 
