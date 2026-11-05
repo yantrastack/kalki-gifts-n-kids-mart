@@ -25,6 +25,7 @@ import { type Theme, money } from '../theme';
 import ProductImage, { ImageFallback } from '../components/ProductImage';
 import ProductBadge from '../components/ProductBadge';
 import Skeleton from '../components/Skeleton';
+import Toast from '../components/Toast';
 import { useFocusRing } from '../components/focusRing';
 import { pageAt, sizedImageUrl, stepIndex } from '../components/gallery';
 import { GalleryArrows, GalleryCounter } from '../components/GalleryControls';
@@ -172,25 +173,40 @@ export default function ReelsScreen({
   const activeRef = useRef(active);
   activeRef.current = active;
 
-  const loadFirst = useCallback(async (cat: string | null) => {
+  // "Found N" under the chips after a tab tap (YAN-117). `announceNext` is set by the chip
+  // press, so the first load of the screen and Retry never show it.
+  const [found, setFound] = useState<{ id: number; count: number } | null>(null);
+  const announceNext = useRef(false);
+  // Only the newest load may update the screen: a slow answer for a tab the customer has
+  // already left must not overwrite the feed, flip the spinner, or announce a stale count.
+  const latestLoad = useRef(0);
+
+  const loadFirst = useCallback(async (cat: string | null, announce = false) => {
+    const mine = ++latestLoad.current;
     setLoading(true);
     setError(false);
     setLoadMoreError(false);
+    setFound(null);
     try {
       const res = await getFeed(null, cat ?? undefined);
+      if (mine !== latestLoad.current) return;
       setItems(res.items);
       setCursor(res.nextCursor);
       if (res.categories) setCategories(res.categories);
       setActive(0);
       viewed.current.clear();
+      // `total` is the whole category (every page), not just the 5 reels just fetched.
+      if (announce && typeof res.total === 'number') setFound({ id: Date.now(), count: res.total });
     } catch {
-      setError(true);
+      if (mine === latestLoad.current) setError(true);
     } finally {
-      setLoading(false);
+      if (mine === latestLoad.current) setLoading(false);
     }
   }, []);
   useEffect(() => {
-    loadFirst(category);
+    const announce = announceNext.current;
+    announceNext.current = false;
+    loadFirst(category, announce);
   }, [category, loadFirst]);
 
   const loadMore = useCallback(async () => {
@@ -418,7 +434,11 @@ export default function ReelsScreen({
                 radius={999}
                 role="tab"
                 selected={on}
-                onPress={() => setCategory(c)}
+                onPress={() => {
+                  if (c === category) return; // already showing it: no refetch, no toast
+                  announceNext.current = true;
+                  setCategory(c);
+                }}
                 style={[styles.chip, { backgroundColor: on ? theme.accent : CHIP_BG }]}
               >
                 <Text style={styles.chipText}>
@@ -521,6 +541,17 @@ export default function ReelsScreen({
               onForcedMute={forceMuted}
             />
           )}
+        />
+      )}
+
+      {found && (
+        <Toast
+          id={found.id}
+          text={t('reels.found', { count: found.count })}
+          onDone={() => setFound(null)}
+          // Right under the chips row, centred. The photo counter sits at the right edge and
+          // the arrows lower down, so neither is covered; the cart toast (top 148) is below.
+          top={102}
         />
       )}
 

@@ -9,7 +9,7 @@ import {
   toShopMedia,
 } from '@stockwell/shared';
 import { isPublic } from '@/lib/catalog';
-import { reelCategories, reelPool, relatedReels } from '@/lib/feed';
+import { reelCategories, reelPool, reelsInCategory, relatedReels } from '@/lib/feed';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };
 
@@ -70,8 +70,7 @@ export async function GET(req: NextRequest) {
   const cover = (id: string) =>
     mediaByProduct.get(id)?.find((m) => m.type === 'image')?.url ?? null;
 
-  const filtered =
-    category && category !== 'all' ? pool.filter((p) => p.category === category) : pool;
+  const filtered = reelsInCategory(pool, category);
 
   const page = filtered.slice(offset, offset + limit);
   const items: FeedProduct[] = page.map((p) => {
@@ -111,6 +110,7 @@ export async function GET(req: NextRequest) {
     items,
     nextCursor: nextOffset < filtered.length ? String(nextOffset) : null,
     categories: reelCategories(pool),
+    total: filtered.length,
   };
   return NextResponse.json(res, { headers: CORS });
 }

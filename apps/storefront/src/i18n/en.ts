@@ -34,6 +34,9 @@ export const en = {
     giftBannerSub: "Birthday, wedding, valentine's & more",
     noResults: 'No products found',
     noResultsSub: 'Try a different search or category.',
+    // Toast under the category tabs after a tab is tapped: how many products it shows.
+    found_one: 'Found {count}',
+    found_other: 'Found {count}',
   },
 
   card: {
@@ -149,6 +152,9 @@ export const en = {
     end: "You're all caught up",
     empty: 'No reels here yet',
     showAll: 'Show all',
+    // Toast under the category tabs after a tab is tapped: the size of the whole category.
+    found_one: 'Found {count}',
+    found_other: 'Found {count}',
   },
 
   gift: {
