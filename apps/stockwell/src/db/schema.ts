@@ -28,6 +28,7 @@ export const products = sqliteTable(
     sku: text('sku').notNull(),
     barcode: text('barcode'),
     category: text('category'),
+    subCategory: text('sub_category'),
     brand: text('brand'),
     price: real('price').notNull().default(0),
     cost: real('cost').notNull().default(0),
@@ -154,7 +155,12 @@ export const salesOrders = sqliteTable('sales_orders', {
   total: real('total').default(0),
   status: text('status').default('pending'),
   payment: text('payment').default('unpaid'),
+  // Display label only ("Jul 16" / "16 Jul"), no year. Use created_at for sorting
+  // and date ranges.
   date: text('date'),
+  // When the order was placed, ISO-8601 UTC. No column default: SQLite can't add a
+  // column defaulting to CURRENT_TIMESTAMP, so writers set it explicitly.
+  createdAt: text('created_at'),
 });
 
 export const stockMoves = sqliteTable('stock_moves', {

@@ -229,5 +229,8 @@ Demo logins (password `stockwell123`): `admin@stockwell.app` (admin),
   first, or append `as any`.
 - After any `schema.ts` change: `pnpm db:generate && pnpm db:migrate`, update
   `seed.ts`, commit the new `drizzle/*.sql`.
+- Sales orders: sort and date-range by `created_at` (ISO, set by every writer) via
+  `orderPlacedAt` / `sortOrdersNewestFirst` in `src/lib/salesOrders.ts`. `date` is a
+  yearless display label ("Jul 16" or POS's "16 Jul"), never sort on it. YAN-115.
 - React versions are pinned identically across apps (Expo SDK 56 → React 19.2.3);
   a mismatch breaks the Next build.

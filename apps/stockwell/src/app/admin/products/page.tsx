@@ -108,6 +108,16 @@ export default function ProductsPage() {
   useEffect(() => {
     load();
   }, []);
+  // `?new=1` (Dashboard "New product") opens the Add product popup, then drops the
+  // flag so a refresh or Back doesn't reopen it. Read from `location` rather than
+  // useSearchParams, which would need a Suspense boundary for the static build.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('new') !== '1') return;
+    setAddOpen(true);
+    url.searchParams.delete('new');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  }, []);
 
   const categories = useMemo(
     () => ['all', ...Array.from(new Set(products.map((p) => p.category)))],

@@ -687,8 +687,7 @@ export default function PurchaseForm({ poId }: { poId?: string }) {
             open={showAddProduct}
             onClose={() => setShowAddProduct(false)}
             onSubmit={createProduct}
-            defaults={{ supplier, warehouse }}
-            hideSupplier
+            defaults={{ warehouse }}
             customizable
           />
         </>

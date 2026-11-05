@@ -1,0 +1,1 @@
+ALTER TABLE `products` ADD `sub_category` text;

@@ -317,6 +317,12 @@ export type FeedResponse = {
   items: FeedProduct[];
   nextCursor: string | null;
   categories: string[];
+  /**
+   * How many reels the requested category has in all (every page, not just this one) —
+   * the number behind the "Found N" toast. Counts what the feed can show, i.e. sellable
+   * products with media.
+   */
+  total: number;
 };
 
 /**

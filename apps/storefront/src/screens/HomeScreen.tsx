@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import ProductCard from '../components/ProductCard';
 import Skeleton from '../components/Skeleton';
 import ThemedInput, { FOCUS_RING } from '../components/ThemedInput';
+import Toast from '../components/Toast';
 import { useI18n } from '../i18n';
 import type { Theme } from '../theme';
 import type { Product } from '../api';
@@ -32,11 +33,22 @@ export default function HomeScreen({
     () => ['All', ...Array.from(new Set(products.map((p) => p.category)))],
     [products],
   );
-  const filtered = products.filter(
-    (p) =>
-      (cat === 'All' || p.category === cat) &&
-      (!query || p.name.toLowerCase().includes(query.toLowerCase())),
-  );
+  const matches = (p: Product, category: string) =>
+    (category === 'All' || p.category === category) &&
+    (!query || p.name.toLowerCase().includes(query.toLowerCase()));
+  const filtered = products.filter((p) => matches(p, cat));
+
+  // "Found N" under the tabs after a tab is tapped (YAN-117). The products are already
+  // loaded, so the count is known at once: it is what the list will show for that tab.
+  const [found, setFound] = useState<{ id: number; count: number } | null>(null);
+  // Bottom edge of the tabs row inside the list header, so the toast sits right under it
+  // and scrolls along with it.
+  const [tabsBottom, setTabsBottom] = useState(60);
+  const pickCategory = (c: string) => {
+    if (c === cat) return; // already showing it: nothing to announce
+    setCat(c);
+    setFound({ id: Date.now(), count: products.filter((p) => matches(p, c)).length });
+  };
 
   const header = (
     <View style={{ paddingHorizontal: 6 }}>
@@ -94,13 +106,14 @@ export default function HomeScreen({
         showsHorizontalScrollIndicator={false}
         style={{ marginVertical: 12 }}
         contentContainerStyle={{ gap: 8 }}
+        onLayout={(e) => setTabsBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}
       >
         {cats.map((c) => {
           const active = c === cat;
           return (
             <Pressable
               key={c}
-              onPress={() => setCat(c)}
+              onPress={() => pickCategory(c)}
               style={[
                 styles.chip,
                 {
@@ -123,6 +136,14 @@ export default function HomeScreen({
           );
         })}
       </ScrollView>
+      {found && (
+        <Toast
+          id={found.id}
+          text={t('home.found', { count: found.count })}
+          onDone={() => setFound(null)}
+          top={tabsBottom}
+        />
+      )}
     </View>
   );
 
@@ -158,6 +179,8 @@ export default function HomeScreen({
       keyExtractor={(p) => p.id}
       contentContainerStyle={{ padding: 8, paddingBottom: 110 }}
       ListHeaderComponent={header}
+      // Lets the toast (inside the header) paint over the first row of products.
+      ListHeaderComponentStyle={{ zIndex: 10 }}
       renderItem={({ item, index }) => (
         <ProductCard
           product={item}

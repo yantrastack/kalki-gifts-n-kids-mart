@@ -119,6 +119,7 @@ export async function POST(req: NextRequest) {
     sku: body.sku,
     barcode: body.barcode || null,
     category: body.category || null,
+    subCategory: body.subCategory || null,
     brand: body.brand || null,
     price: Number(body.price) || 0,
     cost: Number(body.cost) || 0,
@@ -127,7 +128,6 @@ export async function POST(req: NextRequest) {
     incoming: Number(body.incoming) || 0,
     damaged: Number(body.damaged) || 0,
     warehouse: body.warehouse || null,
-    supplier: body.supplier || null,
     status: deriveStatus(stock),
     lifecycle: activate ? 'active' : 'draft',
     // Badge code ("Kids favourite" → "kids-favourite"); the storefront translates it.
