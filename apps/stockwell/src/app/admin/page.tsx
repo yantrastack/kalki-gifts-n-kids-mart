@@ -7,6 +7,15 @@ import { jget } from '@/lib/api';
 import { DASHBOARD_RANGES, type DashboardRange, isoDay, rangeDays } from '@/lib/dashboardRange';
 import { useI18n } from '@/i18n';
 
+// Every target is under /admin (the storefront owns /). YAN-115.
+const QUICK_ACTIONS = [
+  { icon: 'plus', key: 'newProduct', href: '/admin/products?new=1' },
+  { icon: 'receipt', key: 'newSale', href: '/admin/pos' },
+  { icon: 'truck', key: 'suppliers', href: '/admin/suppliers' },
+  { icon: 'layers', key: 'adjustStock', href: '/admin/inventory' },
+  { icon: 'users', key: 'customers', href: '/admin/customers' },
+] as const;
+
 const SALES_SERIES = [
   18420, 19840, 17320, 22140, 24820, 21640, 19920, 23420, 25240, 27120, 24820, 26420, 28840, 31200,
   29420, 28140, 30220, 32440, 34120, 31840, 33620, 36120, 38420, 36240, 39120, 41420, 39840, 42120,
@@ -16,7 +25,7 @@ const SALES_SERIES = [
 const csvCell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
 export default function DashboardPage() {
-  const { fmt, Kpi, LineChart, Donut, Avatar, statusBadge, Dropdown, MenuItem } = UI;
+  const { fmt, Kpi, LineChart, Donut, Avatar, statusBadge, Dropdown, MenuItem, EmptyState } = UI;
   const { t } = useI18n();
   const [range, setRange] = useState<DashboardRange>('30d');
   const [data, setData] = useState<any>(null);
@@ -108,8 +117,8 @@ export default function DashboardPage() {
           <button type="button" className="btn btn-secondary" onClick={exportCsv}>
             <Icon name="download" size={14} /> {t('dashboard.export')}
           </button>
-          <Link href="/admin/products" className="btn btn-primary">
-            <Icon name="plus" size={14} /> New product
+          <Link href="/admin/products?new=1" className="btn btn-primary">
+            <Icon name="plus" size={14} /> {t('dashboard.quickActions.newProduct')}
           </Link>
         </div>
       </div>
@@ -312,19 +321,17 @@ export default function DashboardPage() {
 
         <div className="card">
           <div className="card-header">
-            <div className="card-title">Quick actions</div>
+            <h2 className="card-title">{t('dashboard.quickActions.title')}</h2>
           </div>
-          <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {[
-              { icon: 'plus', label: 'New product', sub: 'Add to catalog', go: '/products' },
-              { icon: 'receipt', label: 'Sales orders', sub: 'Create + invoice', go: '/orders' },
-              { icon: 'truck', label: 'Suppliers', sub: 'Manage vendors', go: '/suppliers' },
-              { icon: 'layers', label: 'Adjust stock', sub: 'Inventory moves', go: '/inventory' },
-              { icon: 'users', label: 'Customers', sub: 'Directory', go: '/customers' },
-            ].map((q, i) => (
+          <nav
+            aria-label={t('dashboard.quickActions.title')}
+            className="card-body"
+            style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+          >
+            {QUICK_ACTIONS.map((q) => (
               <Link
-                key={i}
-                href={q.go}
+                key={q.key}
+                href={q.href}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -350,57 +357,73 @@ export default function DashboardPage() {
                   <Icon name={q.icon} size={16} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 'var(--t-base)', fontWeight: 500 }}>{q.label}</div>
+                  <div style={{ fontSize: 'var(--t-base)', fontWeight: 500 }}>
+                    {t(`dashboard.quickActions.${q.key}`)}
+                  </div>
                   <div style={{ fontSize: 'var(--t-xs)', color: 'var(--fg-tertiary)' }}>
-                    {q.sub}
+                    {t(`dashboard.quickActions.${q.key}Sub`)}
                   </div>
                 </div>
                 <Icon name="chevRight" size={14} style={{ color: 'var(--fg-tertiary)' }} />
               </Link>
             ))}
-          </div>
+          </nav>
         </div>
       </div>
 
-      <div className="card">
+      <section className="card" aria-labelledby="dash-recent-orders">
         <div className="card-header">
           <div>
-            <div className="card-title">Recent sales orders</div>
-            <div className="card-subtitle">Latest {Math.min(orders.length, 8)} orders</div>
+            <h2 id="dash-recent-orders" className="card-title">
+              {t('dashboard.recentOrders.title')}
+            </h2>
+            {orders.length > 0 && (
+              <div className="card-subtitle">
+                {t('dashboard.recentOrders.sub', { count: orders.length })}
+              </div>
+            )}
           </div>
           <Link href="/admin/orders" className="btn btn-ghost btn-sm">
-            View all <Icon name="arrowRight" size={12} />
+            {t('dashboard.recentOrders.viewAll')} <Icon name="arrowRight" size={12} />
           </Link>
         </div>
-        <div className="table-scroll">
-          <table className="dt">
-            <thead>
-              <tr>
-                <th>Order</th>
-                <th>Customer</th>
-                <th className="col-num">Items</th>
-                <th className="col-num">Total</th>
-                <th>Status</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.slice(0, 8).map((o: any) => (
-                <tr key={o.id}>
-                  <td className="mono" style={{ fontWeight: 500 }}>
-                    {o.id}
-                  </td>
-                  <td>{o.customer}</td>
-                  <td className="col-num">{o.items}</td>
-                  <td className="col-num mono">{fmt.money(o.total)}</td>
-                  <td>{statusBadge(o.status)}</td>
-                  <td className="muted">{o.date}</td>
+        {orders.length === 0 ? (
+          <EmptyState
+            icon="receipt"
+            title={t('dashboard.recentOrders.emptyTitle')}
+            body={t('dashboard.recentOrders.emptyBody')}
+          />
+        ) : (
+          <div className="table-scroll">
+            <table className="dt">
+              <thead>
+                <tr>
+                  <th>{t('dashboard.csv.order')}</th>
+                  <th>{t('dashboard.csv.customer')}</th>
+                  <th className="col-num">{t('dashboard.csv.items')}</th>
+                  <th className="col-num">{t('dashboard.csv.total')}</th>
+                  <th>{t('dashboard.csv.status')}</th>
+                  <th>{t('dashboard.csv.date')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody>
+                {orders.map((o: any) => (
+                  <tr key={o.id}>
+                    <td className="mono" style={{ fontWeight: 500 }}>
+                      {o.id}
+                    </td>
+                    <td>{o.customer}</td>
+                    <td className="col-num">{o.items}</td>
+                    <td className="col-num mono">{fmt.money(o.total)}</td>
+                    <td>{statusBadge(o.status)}</td>
+                    <td className="muted">{o.date}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

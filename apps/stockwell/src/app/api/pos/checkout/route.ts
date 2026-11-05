@@ -144,6 +144,7 @@ export async function POST(req: NextRequest) {
         status: 'fulfilled',
         payment: payStatus,
         date,
+        createdAt: nowIso,
       } as any);
 
       await tx.insert(schema.invoices).values({

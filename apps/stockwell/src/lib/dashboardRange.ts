@@ -21,17 +21,26 @@ export const isoDay = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 /**
- * Sales-order `date` is free text written as "Jul 16" (no year) or "Jul 16, 2026".
+ * Legacy sales-order `date` label: free text written as "Jul 16" / "Jul 16, 2026"
+ * (Sales Orders API, seed) or "16 Jul" / "16 Sept 2026" (POS, en-IN). New orders
+ * carry `createdAt`; see `orderPlacedAt` in `salesOrders.ts`.
  * A yearless date is assumed to be the most recent such day on or before `today`.
  */
 export function parseOrderDate(s: string | null | undefined, today: Date): Date | null {
   if (!s) return null;
-  const m = /^([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?$/.exec(s.trim());
-  if (m) {
-    const month = MONTHS.indexOf(m[1].toLowerCase());
+  const t = s.trim();
+  const monFirst = /^([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?$/.exec(t);
+  const dayFirst = monFirst
+    ? null
+    : /^(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\.?(?:,?\s+(\d{4}))?$/.exec(t);
+  if (monFirst || dayFirst) {
+    const [mon, day, year] = monFirst
+      ? [monFirst[1], monFirst[2], monFirst[3]]
+      : [dayFirst?.[2] ?? '', dayFirst?.[1] ?? '', dayFirst?.[3]];
+    const month = MONTHS.indexOf(mon.toLowerCase());
     if (month < 0) return null;
-    const d = new Date(m[3] ? Number(m[3]) : today.getFullYear(), month, Number(m[2]));
-    if (!m[3] && d > today) d.setFullYear(d.getFullYear() - 1);
+    const d = new Date(year ? Number(year) : today.getFullYear(), month, Number(day));
+    if (!year && d > today) d.setFullYear(d.getFullYear() - 1);
     return d;
   }
   const d = new Date(s);

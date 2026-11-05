@@ -10,6 +10,7 @@ import {
   Platform,
   type PressableProps,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
   type ViewToken,
 } from 'react-native';
@@ -24,6 +25,7 @@ import { type Theme, money } from '../theme';
 import ProductImage, { ImageFallback } from '../components/ProductImage';
 import ProductBadge from '../components/ProductBadge';
 import Skeleton from '../components/Skeleton';
+import Toast from '../components/Toast';
 import { useFocusRing } from '../components/focusRing';
 import { pageAt, sizedImageUrl, stepIndex } from '../components/gallery';
 import { GalleryArrows, GalleryCounter } from '../components/GalleryControls';
@@ -44,6 +46,7 @@ import {
   clampReel,
   reelDensity,
   reelRail,
+  REEL_SCRIMS,
   reelStepForKey,
   scrimGradient,
   toggleLiked,
@@ -51,6 +54,13 @@ import {
   wheelStep,
 } from '../reels';
 
+/**
+ * Translucent pills over the media. Chosen to pass WCAG AA even over a pure-white photo:
+ * `CHIP_BG` 0.6 black → white 12px text at 5.7:1 (AA text needs 4.5); `ICON_BG` 0.5 black →
+ * white icons at 3.9:1 (AA graphics need 3).
+ */
+const CHIP_BG = 'rgba(0,0,0,0.6)';
+const ICON_BG = 'rgba(0,0,0,0.5)';
 /** Placeholder tone on the black Discover feed (the light app tone would glare here). */
 const REEL_FALLBACK = '#24211D';
 // Gallery counter position, under the header and category chips.
@@ -163,25 +173,40 @@ export default function ReelsScreen({
   const activeRef = useRef(active);
   activeRef.current = active;
 
-  const loadFirst = useCallback(async (cat: string | null) => {
+  // "Found N" under the chips after a tab tap (YAN-117). `announceNext` is set by the chip
+  // press, so the first load of the screen and Retry never show it.
+  const [found, setFound] = useState<{ id: number; count: number } | null>(null);
+  const announceNext = useRef(false);
+  // Only the newest load may update the screen: a slow answer for a tab the customer has
+  // already left must not overwrite the feed, flip the spinner, or announce a stale count.
+  const latestLoad = useRef(0);
+
+  const loadFirst = useCallback(async (cat: string | null, announce = false) => {
+    const mine = ++latestLoad.current;
     setLoading(true);
     setError(false);
     setLoadMoreError(false);
+    setFound(null);
     try {
       const res = await getFeed(null, cat ?? undefined);
+      if (mine !== latestLoad.current) return;
       setItems(res.items);
       setCursor(res.nextCursor);
       if (res.categories) setCategories(res.categories);
       setActive(0);
       viewed.current.clear();
+      // `total` is the whole category (every page), not just the 5 reels just fetched.
+      if (announce && typeof res.total === 'number') setFound({ id: Date.now(), count: res.total });
     } catch {
-      setError(true);
+      if (mine === latestLoad.current) setError(true);
     } finally {
-      setLoading(false);
+      if (mine === latestLoad.current) setLoading(false);
     }
   }, []);
   useEffect(() => {
-    loadFirst(category);
+    const announce = announceNext.current;
+    announceNext.current = false;
+    loadFirst(category, announce);
   }, [category, loadFirst]);
 
   const loadMore = useCallback(async () => {
@@ -409,8 +434,12 @@ export default function ReelsScreen({
                 radius={999}
                 role="tab"
                 selected={on}
-                onPress={() => setCategory(c)}
-                style={[styles.chip, { backgroundColor: on ? theme.accent : 'rgba(0,0,0,0.45)' }]}
+                onPress={() => {
+                  if (c === category) return; // already showing it: no refetch, no toast
+                  announceNext.current = true;
+                  setCategory(c);
+                }}
+                style={[styles.chip, { backgroundColor: on ? theme.accent : CHIP_BG }]}
               >
                 <Text style={styles.chipText}>
                   {c == null ? t('common.all') : categoryLabel(c)}
@@ -512,6 +541,17 @@ export default function ReelsScreen({
               onForcedMute={forceMuted}
             />
           )}
+        />
+      )}
+
+      {found && (
+        <Toast
+          id={found.id}
+          text={t('reels.found', { count: found.count })}
+          onDone={() => setFound(null)}
+          // Right under the chips row, centred. The photo counter sits at the right edge and
+          // the arrows lower down, so neither is covered; the cart toast (top 148) is below.
+          top={102}
         />
       )}
 
@@ -704,9 +744,10 @@ function Reel({
         />
       )}
 
-      {/* Soft gradient scrims for legibility (no hard-edged bands). */}
-      <Scrim edge="top" height={170} max={0.55} />
-      <Scrim edge="bottom" height={Math.min(Math.round(height * 0.6), 460)} max={0.78} />
+      {/* Light gradients that fade to clear: the media stays full-bleed with no dark band.
+          Text legibility comes from text shadows and pills (YAN-118). */}
+      <Scrim edge="top" {...REEL_SCRIMS.top} />
+      <Scrim edge="bottom" {...REEL_SCRIMS.bottom} />
 
       {/* Gallery navigation (same as the product page) */}
       <GalleryArrows
@@ -1166,6 +1207,25 @@ function RailBtn({
   );
 }
 
+/**
+ * Dark halo behind white text drawn straight on the media (no pill behind it), so it reads
+ * on white product photos without darkening the photo (YAN-118). The edge scrims are too
+ * light to carry contrast on their own. Web stacks tight shadows into a dense halo (WCAG
+ * treats a halo as the text's background); native has one shadow, so it is kept opaque.
+ */
+const textOnMedia = (
+  isWeb
+    ? {
+        textShadow:
+          '0 0 2px #000, 0 0 3px #000, 0 0 5px rgba(0,0,0,0.9), 0 1px 10px rgba(0,0,0,0.7)',
+      }
+    : {
+        textShadowColor: 'rgba(0,0,0,0.9)',
+        textShadowRadius: 3,
+        textShadowOffset: { width: 0, height: 1 },
+      }
+) as TextStyle;
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
@@ -1188,8 +1248,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 20,
     fontWeight: '800',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowRadius: 6,
+    ...textOnMedia,
   },
   topBtn: {
     width: 36,
@@ -1197,7 +1256,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: ICON_BG,
   },
   badge: {
     position: 'absolute',
@@ -1233,15 +1292,8 @@ const styles = StyleSheet.create({
   railBtn: { alignItems: 'center', gap: 4 },
   // Translucent dark circle so white icons read on light photos. No border: a light ring
   // doubled up with the outline heart icon.
-  railIcon: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.45)' },
-  railLabel: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-    textShadowColor: 'rgba(0,0,0,0.85)',
-    textShadowRadius: 4,
-    textShadowOffset: { width: 0, height: 1 },
-  },
+  railIcon: { alignItems: 'center', justifyContent: 'center', backgroundColor: ICON_BG },
+  railLabel: { color: '#fff', fontSize: 12, fontWeight: '800', ...textOnMedia },
   tagPill: { marginBottom: 8, alignSelf: 'flex-start' },
   nameLink: { alignSelf: 'flex-start' },
   name: {
@@ -1249,13 +1301,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     lineHeight: 25,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowRadius: 6,
+    ...textOnMedia,
   },
   nameTight: { fontSize: 17, lineHeight: 21 },
-  meta: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 3 },
+  meta: { color: '#fff', fontSize: 13, fontWeight: '700', marginTop: 3, ...textOnMedia },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  price: { color: '#fff', fontSize: 22, fontWeight: '800' },
+  price: { color: '#fff', fontSize: 22, fontWeight: '800', ...textOnMedia },
   stockPill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
   stockText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   cta: {
@@ -1269,10 +1320,10 @@ const styles = StyleSheet.create({
   },
   ctaTight: { paddingVertical: 9, marginTop: 8 },
   ctaText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  relatedTitle: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '700' },
+  relatedTitle: { color: '#fff', fontSize: 12, fontWeight: '700', ...textOnMedia },
   relCard: { width: 72 },
   relThumb: { width: 72, height: 72, borderRadius: 12, backgroundColor: '#333' },
-  relPrice: { color: '#fff', fontSize: 11, fontWeight: '700', marginTop: 3 },
+  relPrice: { color: '#fff', fontSize: 11, fontWeight: '700', marginTop: 3, ...textOnMedia },
   feedNote: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
