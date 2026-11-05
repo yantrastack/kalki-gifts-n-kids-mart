@@ -47,6 +47,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     'sku',
     'barcode',
     'category',
+    'subCategory',
     'brand',
     'price',
     'cost',

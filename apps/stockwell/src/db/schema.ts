@@ -28,6 +28,7 @@ export const products = sqliteTable(
     sku: text('sku').notNull(),
     barcode: text('barcode'),
     category: text('category'),
+    subCategory: text('sub_category'),
     brand: text('brand'),
     price: real('price').notNull().default(0),
     cost: real('cost').notNull().default(0),

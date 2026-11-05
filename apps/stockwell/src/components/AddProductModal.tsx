@@ -30,12 +30,12 @@ export default function AddProductModal({
     sku: '',
     barcode: '',
     category: '',
+    subCategory: '',
     brand: '',
     price: '',
     cost: '',
     stock: '',
     warehouse: '',
-    supplier: '',
     hsnCode: '',
     gstRate: '18',
   };
@@ -152,6 +152,14 @@ export default function AddProductModal({
           />
         </label>
         <label className="field">
+          <span>Sub category</span>
+          <input
+            className="input"
+            value={form.subCategory}
+            onChange={(e) => set('subCategory', e.target.value)}
+          />
+        </label>
+        <label className="field">
           <span>Brand</span>
           <input
             className="input"
@@ -219,14 +227,6 @@ export default function AddProductModal({
             ]}
           />
         </div>
-        <label className="field" style={{ gridColumn: '1 / -1' }}>
-          <span>Supplier</span>
-          <input
-            className="input"
-            value={form.supplier}
-            onChange={(e) => set('supplier', e.target.value)}
-          />
-        </label>
         {customizable && (
           // Kept mounted while hidden so nothing typed or chosen is lost.
           <div
