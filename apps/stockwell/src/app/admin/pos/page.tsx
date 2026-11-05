@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import * as UI from '@/components/ui';
 import ProductPhoto from '@/components/ProductPhoto';
+import CustomerFormModal from '@/components/CustomerFormModal';
 import { useI18n } from '@/i18n';
 import { jget, jsend } from '@/lib/api';
 import { buildSaleLines } from '@/lib/invoice';
@@ -52,6 +53,7 @@ export default function POSPage() {
   const [showPay, setShowPay] = useState(false);
   const [receipt, setReceipt] = useState<any>(null);
   const [busy, setBusy] = useState(false);
+  const [customerOpen, setCustomerOpen] = useState(false);
 
   const load = () => jget('/api/products?sellable=1').then(setProducts);
   useEffect(() => {
@@ -294,8 +296,11 @@ export default function POSPage() {
           )}
         </div>
         <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
-          <div className="field">
-            <span>Customer</span>
+          <span className="field-label" style={{ display: 'block', marginBottom: 6 }}>
+            Customer
+          </span>
+          {/* Dropdown : button = 7 : 4 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '7fr 4fr', gap: 8 }}>
             <UI.Select
               aria-label="Customer"
               value={customerId}
@@ -305,6 +310,14 @@ export default function POSPage() {
                 ...registered.map((c) => ({ value: c.id, label: c.name })),
               ]}
             />
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ justifyContent: 'center', whiteSpace: 'nowrap', paddingInline: 8 }}
+              onClick={() => setCustomerOpen(true)}
+            >
+              <Icon name="plus" size={14} /> {t('customers.add')}
+            </button>
           </div>
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '8px 16px' }}>
@@ -707,6 +720,15 @@ export default function POSPage() {
           </>
         )}
       </Modal>
+      <CustomerFormModal
+        open={customerOpen}
+        onClose={() => setCustomerOpen(false)}
+        customers={customers}
+        onCreated={(row) => {
+          setCustomers((cs) => [row, ...cs]);
+          setCustomerId(row.id);
+        }}
+      />
     </div>
   );
 }
