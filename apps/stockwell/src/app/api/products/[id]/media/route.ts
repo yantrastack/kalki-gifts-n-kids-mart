@@ -2,10 +2,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db/client';
 import { and, eq, asc } from 'drizzle-orm';
 import crypto from 'crypto';
-import { checkReorder } from '@/lib/mediaRules';
-import { parseMediaRequest, storePending } from '@/lib/mediaApi';
+import { checkReorder, limitMedia } from '@/lib/mediaRules';
+import { parseMediaRequest, problemResponse, storePending } from '@/lib/mediaApi';
 import { removeMedia } from '@/lib/storage';
-import { isAdmin } from '@/lib/guard';
+import { isSignedIn } from '@/lib/guard';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -19,12 +19,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
   return NextResponse.json(rows);
 }
 
-// Add media to a product. Admin-only: the admin UI only offers upload/remove to admins,
-// and the API enforces the same rule. Two body shapes (see lib/mediaApi.ts):
+// Add media to a product. Any signed-in user (admin or staff);
+// Two body shapes (see lib/mediaApi.ts):
 //  - multipart, field "files" (+ optional "meta" JSON per file): stored here;
 //  - JSON `{ uploads: [...] }`: files the browser uploaded straight to Cloudinary.
 export async function POST(req: NextRequest, { params }: Params) {
-  if (!(await isAdmin(req))) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  if (!(await isSignedIn(req)))
+    return NextResponse.json({ error: 'Sign in required' }, { status: 403 });
   const { id } = await params;
   const product = await db.select().from(schema.products).where(eq(schema.products.id, id)).get();
   if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
@@ -37,6 +38,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     .select()
     .from(schema.productMedia)
     .where(eq(schema.productMedia.productId, id));
+  // At most maxFor(kind) photos / videos per product, checked before anything is stored.
+  for (const kind of ['image', 'video'] as const) {
+    const incoming = parsed.items.filter((i) => i.kind === kind);
+    const { problems } = limitMedia(kind, existing.filter((m) => m.type === kind).length, incoming);
+    if (problems.length) return problemResponse(problems[0]);
+  }
   let order = existing.length ? Math.max(...existing.map((m) => m.sortOrder)) + 1 : 0;
 
   const created = [];
@@ -62,7 +69,8 @@ export async function POST(req: NextRequest, { params }: Params) {
 // Reorder a product's media: body `{ order: [mediaId, ...] }` listing every one of its
 // media ids once. The first becomes the cover ("Set as cover" = move it to the front).
 export async function PATCH(req: NextRequest, { params }: Params) {
-  if (!(await isAdmin(req))) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  if (!(await isSignedIn(req)))
+    return NextResponse.json({ error: 'Sign in required' }, { status: 403 });
   const { id } = await params;
   const body = await req.json().catch(() => null);
   const existing = await db
@@ -95,7 +103,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return GET(req, { params });
 }
 
-// Remove one media item (admin-only via middleware): DELETE ?mediaId=...
+// Remove one media item (staff may delete media, see middleware): DELETE ?mediaId=...
 export async function DELETE(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const mediaId = new URL(req.url).searchParams.get('mediaId');

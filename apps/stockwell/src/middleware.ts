@@ -26,7 +26,12 @@ export async function middleware(req: NextRequest) {
   // Remaining API routes require a session; DELETE is admin-only.
   if (pathname.startsWith('/api/')) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    if (req.method === 'DELETE' && session.role !== 'admin') {
+    // Exceptions: staff may remove suppliers (DELETE /api/suppliers/:id) and
+    // product photos/videos (DELETE /api/products/:id/media).
+    const staffMayDelete =
+      pathname.startsWith('/api/suppliers/') ||
+      /^\/api\/products\/[^/]+\/media(\/|$)/.test(pathname);
+    if (req.method === 'DELETE' && session.role !== 'admin' && !staffMayDelete) {
       return NextResponse.json({ error: 'Forbidden — admin role required' }, { status: 403 });
     }
     return NextResponse.next();

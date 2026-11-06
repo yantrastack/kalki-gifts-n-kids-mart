@@ -7,6 +7,12 @@ import MediaPicker from './MediaPicker';
 import { jget } from '@/lib/api';
 import { useI18n } from '@/i18n';
 
+// Price/cost inputs accept 0 or more only: block "-" / "e" keys and strip a pasted minus.
+const blockNegative = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault();
+};
+const nonNegative = (v: string) => (v.trim().startsWith('-') ? v.replace(/-/g, '') : v);
+
 // Shared "Add product" form — used by the Products page and the purchase
 // entry form. Collects full product details; the parent performs the POST.
 // With `customizable`, a Customize button reveals photo/video and Gift Finder sections:
@@ -172,8 +178,10 @@ export default function AddProductModal({
           <input
             className="input"
             type="number"
+            min={0}
+            onKeyDown={blockNegative}
             value={form.price}
-            onChange={(e) => set('price', e.target.value)}
+            onChange={(e) => set('price', nonNegative(e.target.value))}
           />
         </label>
         <label className="field">
@@ -181,8 +189,10 @@ export default function AddProductModal({
           <input
             className="input"
             type="number"
+            min={0}
+            onKeyDown={blockNegative}
             value={form.cost}
-            onChange={(e) => set('cost', e.target.value)}
+            onChange={(e) => set('cost', nonNegative(e.target.value))}
           />
         </label>
         <label className="field">
